@@ -243,7 +243,9 @@ export const getAllEvents = async (req, res) => {
     }
 };
 
+
 // Get Event Attendees (for Recruiter and Admin)
+
 export const getEventAttendees = async (req, res) => {
     try {
         const eventId = req.params.id;
@@ -257,10 +259,8 @@ export const getEventAttendees = async (req, res) => {
                 success: false,
             });
         }
-
-        // Ensure that only the event creator (recruiter) or an admin can view the attendees
         if (
-            req.user.role.toLowerCase() !== "admin" && // Allow admins
+            req.user.role.toLowerCase() !== "admin" && 
             (req.user.role.toLowerCase() !== "recruiter" || event.createdBy.toString() !== req.user._id.toString())
         ) {
             return res.status(403).json({
