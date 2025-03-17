@@ -38,10 +38,10 @@ const Profile = () => {
                 dispatch(logout()); // Dispatch logout action
                 navigate("/login"); // Redirect to login or home page
             } else {
-                console.error("Failed to delete account:", response.data.message);
+                console.error("Failed to disable account:", response.data.message);
             }
         } catch (error) {
-            console.error("Error deleting account:", error);
+            console.error("Error disabling account:", error);
         }
     };
 
@@ -168,15 +168,15 @@ const Profile = () => {
                 )}
             </div>
 
-            {/* Delete Confirmation Popup */}
+            {/* Disable Confirmation Popup */}
             {showDeleteConfirm && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
                     <div className="bg-white p-6 rounded-lg shadow-lg w-96">
                         <h3 className="text-lg font-semibold text-gray-800">
-                            Are you sure you want to delete your account?
+                            Are you sure you want to disable your account?
                         </h3>
                         <p className="text-gray-600 mt-2">
-                            This action cannot be undone. All your data will be permanently deleted.
+                            This action cannot be undone. All your data will be permanently disabled.
                         </p>
                         <div className="flex justify-end gap-4 mt-4">
                             <Button
@@ -189,7 +189,7 @@ const Profile = () => {
                                 onClick={handleDeleteAccount}
                                 className="bg-red-600 text-white hover:bg-red-700"
                             >
-                                Delete
+                                Disable
                             </Button>
                         </div>
                     </div>
