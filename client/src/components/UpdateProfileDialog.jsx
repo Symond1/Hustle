@@ -15,6 +15,7 @@ const UpdateProfileDialog = ({ open, setOpen }) => {
     const [loading, setLoading] = useState(false);
     const { user, token } = useSelector((store) => store.auth);
     const navigate = useNavigate();
+
     const isAdult = (dob) => {
         const today = new Date();
         const birthDate = new Date(dob);
@@ -26,19 +27,19 @@ const UpdateProfileDialog = ({ open, setOpen }) => {
         return age >= 18;
     };
 
-
     const [input, setInput] = useState({
         fullname: user?.fullname || '',
         phoneNumber: user?.phoneNumber || '',
         bio: user?.profile?.bio || '',
         skills: user?.profile?.skills?.join(', ') || '',
-        file: user?.profile?.resume || '',
+        file: null, // Updated to default to null for file upload
         gender: user?.profile?.gender || '',
         company: user?.profile?.company || '',
         city: user?.city || '',
         state: user?.state || '',
         experience: user?.profile?.experience || '',
         education: user?.profile?.education || '',
+        dob: user?.profile?.dob || '',
     });
 
     const dispatch = useDispatch();
@@ -56,9 +57,19 @@ const UpdateProfileDialog = ({ open, setOpen }) => {
         e.preventDefault();
 
         const formData = new FormData();
+        // Append all non-file fields
         Object.keys(input).forEach((key) => {
-            formData.append(key, input[key]);
+            if (key !== 'file') {
+                formData.append(key, input[key]);
+            }
         });
+        // Append file if present
+        if (input.file) {
+            formData.append('file', input.file);
+            // Append fileType based on role. For Jobseeker, it's "resume"; otherwise, "profilePhoto".
+            const fileType = user.role === 'Jobseeker' ? 'resume' : 'profilePhoto';
+            formData.append('fileType', fileType);
+        }
 
         try {
             setLoading(true);
@@ -95,12 +106,13 @@ const UpdateProfileDialog = ({ open, setOpen }) => {
                 </DialogHeader>
                 <form onSubmit={submitHandler}>
                     <div className="grid gap-6">
-                        {[{ label: 'Name', id: 'fullname', type: 'text' },
-                        { label: 'Phone Number', id: 'phoneNumber', type: 'text' },
-                        { label: 'Bio', id: 'bio', type: 'text' },
-                        { label: 'Skills', id: 'skills', type: 'text' },
-                        { label: 'Experience', id: 'experience', type: 'text' },
-                        { label: 'Education', id: 'education', type: 'text' }
+                        {[
+                            { label: 'Name', id: 'fullname', type: 'text' },
+                            { label: 'Phone Number', id: 'phoneNumber', type: 'text' },
+                            { label: 'Bio', id: 'bio', type: 'text' },
+                            { label: 'Skills', id: 'skills', type: 'text' },
+                            { label: 'Experience', id: 'experience', type: 'text' },
+                            { label: 'Education', id: 'education', type: 'text' }
                         ].map((field) => (
                             <div key={field.id} className="flex items-center gap-4">
                                 <Label htmlFor={field.id} className="w-1/4 text-right">
@@ -132,8 +144,6 @@ const UpdateProfileDialog = ({ open, setOpen }) => {
                                 />
                             </div>
                             <div className="my-2">
-
-                                <div className="flex items-center gap-6"></div>
                                 <Label htmlFor="state" className="w-1/4 text-right"></Label>
                                 <select
                                     value={input.state}
@@ -180,10 +190,7 @@ const UpdateProfileDialog = ({ open, setOpen }) => {
                             </div>
                         </div>
 
-
-
                         {/* Gender dropdown */}
-
                         <div className="flex items-center gap-4">
                             <Label htmlFor="gender" className="w-1/4 text-right">
                                 Gender
@@ -218,7 +225,6 @@ const UpdateProfileDialog = ({ open, setOpen }) => {
                         {input.dob && !isAdult(input.dob) && (
                             <p className="text-red-500 text-sm mt-2">You must be at least 18 years old.</p>
                         )}
-
 
                         {/* Resume field for Job Seekers */}
                         {user.role === 'Jobseeker' && (
@@ -255,4 +261,3 @@ const UpdateProfileDialog = ({ open, setOpen }) => {
 };
 
 export default UpdateProfileDialog;
-
