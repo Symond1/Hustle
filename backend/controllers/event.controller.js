@@ -13,7 +13,9 @@ export const createEvent = async (req, res) => {
             });
         }
 
-        if (req.user.role.toLowerCase() !== "recruiter") {
+        // Allow both "Recruiter" and "Admin" to create an event
+        const userRole = req.user.role.toLowerCase();
+        if (userRole !== "recruiter" && userRole !== "admin") {
             return res.status(403).json({
                 message: "You are not authorized to create an event.",
                 success: false,
@@ -42,7 +44,7 @@ export const createEvent = async (req, res) => {
                 success: false
             });
         }
-        
+
         if (new Date(registrationDeadline) < new Date()) {
             return res.status(400).json({
                 message: "Registration deadline cannot be in the past.",
