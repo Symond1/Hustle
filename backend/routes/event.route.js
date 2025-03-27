@@ -7,7 +7,7 @@ import isAuthenticated from "../middlewares/isAuthenticated.js"; // Import the u
 const router = express.Router();
 
 // Create Event (Only accessible by Recruiter)
-router.route("/create").post(isAuthenticated(["recruiter"]), createEvent);
+router.route("/create").post(isAuthenticated(["recruiter","admin"]), createEvent);
 
 // Get Event Details (Anyone can view details)
 router.route("/:id").get(getEventDetails);
