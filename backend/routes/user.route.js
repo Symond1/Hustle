@@ -1,5 +1,6 @@
+// user.routes.js
 import express from "express";
-import { register, login, logout, forgotPassword, updateProfile, deleteAccount, updatePassword, resetPassword } from "../controllers/user.controller.js";
+import { register, login, logout, forgotPassword, updateProfile,  disableUser , updatePassword, resetPassword } from "../controllers/user.controller.js";
 import isAuthenticated from "../middlewares/isAuthenticated.js";
 import { singleUpload } from "../middlewares/multer.js";
 
@@ -23,10 +24,9 @@ router.route("/profile/password").post(isAuthenticated, updatePassword);
 // Forgot Password Route
 router.post("/forgot-password", forgotPassword);
 
-// Password Reset Route (Add this new route)
-router.post("/reset-password", resetPassword);  // Reset password route
+// Password Reset Route
+router.post("/reset-password", resetPassword);
 
-// Route to delete user account (protected by authentication)
-router.route("/profile").delete(isAuthenticated, deleteAccount);
+router.route("/disable/:id").patch(isAuthenticated(), disableUser);
 
 export default router;

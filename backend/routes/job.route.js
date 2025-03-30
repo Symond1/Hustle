@@ -1,6 +1,6 @@
 import express from "express";
 import isAuthenticated from "../middlewares/isAuthenticated.js";  // Ensure the user is authenticated
-import { getAdminJobs, getAllJobs, getJobById, postJob, disableJob, getApplicantsForJob } from "../controllers/job.controller.js";
+import { getAdminJobs, getAllJobs, getJobById, postJob, disableJob, getApplicantsForJob , enableJob} from "../controllers/job.controller.js";
 
 const router = express.Router();
 
@@ -16,8 +16,10 @@ router.route("/getadminjobs").get(isAuthenticated(["recruiter","admin"]), getAdm
 // Route to get a specific job by ID (Job seekers/recruiters can access this)
 router.route("/get/:id").get(getJobById); // Job seekers can access this without authentication
 
-// Route to disable a job (Admin or Recruiter can disable their own job posting)
+// Route to disable/enable a job (Admin or Recruiter can disable/enable their own job posting)
 router.route("/disable/:id").patch(isAuthenticated(["recruiter", "admin"]), disableJob);
+router.route("/enable/:id").patch(isAuthenticated(["recruiter", "admin"]), enableJob);
+
 
 // added by n to fetch jobs as per id
 router.get("/:id/applicants",isAuthenticated, getApplicantsForJob);

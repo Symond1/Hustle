@@ -1,14 +1,24 @@
 import mongoose from "mongoose";
 
 const profileSchema = new mongoose.Schema({
-    bio: { type: String },
+    
     skills: [{ type: String }],
     resume: { 
         type: String, 
     },
     resumeOriginalName: { type: String },
-    education: { type: String },
-    experience: { type: String },
+    education: [{
+        degree: { type: String },
+        fieldOfStudy: { type: String },
+        startDate: { type: Date },
+        endDate: { type: Date },
+    }],
+    experience: [{
+        companyName: { type: String },
+        role: { type: String },
+        startDate: { type: Date },
+        endDate: { type: Date },
+    }],    
     gender: { type: String },
     dob: { type: Date }, 
     company: { type: mongoose.Schema.Types.ObjectId, ref: "Company", default: null },
@@ -43,6 +53,13 @@ const userSchema = new mongoose.Schema(
                 message: "Please provide a valid phone number",
             },
         },
+        status: {
+            type: String,
+            enum: ["Active", "Inactive"],
+            default: "Active",
+          },
+          
+
         password: {
             type: String,
             required: true,
@@ -80,7 +97,9 @@ const userSchema = new mongoose.Schema(
         passwordResetToken: { type: String },
         passwordResetExpires: { type: Date },
     },
-    { timestamps: true }
+    { timestamps: true },
+    
+    
 );
 
 const User = mongoose.model("User", userSchema);

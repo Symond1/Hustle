@@ -15,8 +15,7 @@ const checkRole = (role) => (req, res, next) => {
   next();
 };
 
-
-export const registerCompany = async (req, res) => { 
+export const registerCompany = async (req, res) => {
   try {
     const {
       companyName,
@@ -29,7 +28,8 @@ export const registerCompany = async (req, res) => {
       contactPhone,
     } = req.body;
 
-    const companyLogo = req.file; // Accessing the uploaded file via multer
+    // Access the file uploaded via multer
+    const companyLogo = req.file;
 
     // Validate mandatory fields
     if (!companyName || companyName.trim() === "") {
@@ -40,12 +40,12 @@ export const registerCompany = async (req, res) => {
 
     if (
       !companyWebsite ||
-      !/^(https?:\/\/)?(www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,6}\/?$/.test(companyWebsite)
+      !/^(https?:\/\/)?(www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,6}(\/.*)?$/.test(companyWebsite)
     ) {
       return res.status(400).json({
         message: "Please provide a valid URL for the company website.",
       });
-    }
+    }    
 
     if (!contactEmail || !/^\S+@\S+\.\S+$/.test(contactEmail)) {
       return res.status(400).json({
@@ -81,26 +81,29 @@ export const registerCompany = async (req, res) => {
     // Cloudinary logic for companyLogo (if provided)
     let companyLogoUrl = "";
     if (companyLogo) {
+      // Create a stream from the file buffer
       const bufferStream = new stream.PassThrough();
       bufferStream.end(companyLogo.buffer);
 
-      const uploadStream = cloudinary.v2.uploader.upload_stream({
-        folder: "company_logos", // Cloudinary folder for storing company logos
-        resource_type: "image", // Define resource type for image uploads
-        public_id: `company_${Date.now()}`, // Unique public ID
-      });
-
+      // Wrap the Cloudinary upload in a promise with a callback
       await new Promise((resolve, reject) => {
-        bufferStream.pipe(uploadStream)
-          .on("finish", (result) => {
+        const uploadStream = cloudinary.v2.uploader.upload_stream(
+          {
+            folder: "company_logos",
+            resource_type: "image",
+            public_id: `company_${Date.now()}`,
+          },
+          (error, result) => {
+            if (error) return reject(error);
             companyLogoUrl = result.secure_url;
             resolve();
-          })
-          .on("error", (error) => reject(error));
+          }
+        );
+        bufferStream.pipe(uploadStream);
       });
     }
 
-    // Create a new company
+    // Create a new company instance
     const newCompany = new Company({
       companyName,
       companyWebsite,
@@ -110,7 +113,7 @@ export const registerCompany = async (req, res) => {
       location,
       contactEmail,
       contactPhone,
-      companyLogo: companyLogoUrl, // The URL after successful upload
+      companyLogo: companyLogoUrl, // The URL after successful upload (empty string if no logo)
       createdBy: recruiterId,
     });
 
@@ -137,36 +140,92 @@ export const registerCompany = async (req, res) => {
   }
 };
 
+
 export const getCompany = async (req, res) => {
   try {
-    const userRole = req.user?.role?.toLowerCase() || "visitor";  // Default to "visitor" if no user
-    const userId = req.user?._id;
-
-    let company;
+    // Check if the user is logged in
+    if (!req.user) {
+      // Not logged in: show all companies (both active and disabled)
+      const companies = await Company.find();
+      if (!companies || companies.length === 0) {
+        return res.status(404).json({
+          message: "No companies found.",
+          success: false,
+        });
+      }
+      return res.status(200).json({
+        message: "Companies retrieved successfully.",
+        company: companies.map(comp => ({
+          ...comp._doc,
+          name: comp.companyName,
+        })),
+      });
+    }
+    
+    // User is logged in, extract and normalize role
+    const userRole = req.user.role.toLowerCase();
+    const userId = req.user._id;
+    let companies;
 
     if (userRole === "recruiter") {
-      company = await Company.findOne({ createdBy: userId });  // Recruiters get their own company
-    } else {
-      company = await Company.find();  // Admins, Jobseekers, and Visitors get all companies
-    }
-
-    if (!company || (Array.isArray(company) && company.length === 0)) {
-      return res.status(404).json({
-        message: "No companies found.",
-        success: false,
+      // Recruiters get only the company they created (regardless of status)
+      const company = await Company.findOne({ createdBy: userId });
+      if (!company) {
+        return res.status(404).json({
+          message: "No company found for the recruiter.",
+          success: false,
+        });
+      }
+      return res.status(200).json({
+        message: "Company retrieved successfully.",
+        company: { name: company.companyName, ...company._doc },
       });
+    } else if (userRole === "admin") {
+      // Admins see all companies (active and disabled)
+      companies = await Company.find();
+      if (!companies || companies.length === 0) {
+        return res.status(404).json({
+          message: "No companies found.",
+          success: false,
+        });
+      }
+      companies = companies.map(comp => ({
+        ...comp._doc,
+        name: comp.companyName,
+        tag: "admin", // Optional tag for admin view
+      }));
+    } else if (userRole === "jobseeker") {
+      // Jobseekers see only active companies
+      companies = await Company.find({ status: "active" });
+      if (!companies || companies.length === 0) {
+        return res.status(404).json({
+          message: "No active companies found.",
+          success: false,
+        });
+      }
+      companies = companies.map(comp => ({
+        ...comp._doc,
+        name: comp.companyName,
+      }));
+    } else {
+      // Fallback: if an unexpected role is encountered, treat as not logged in (all companies)
+      companies = await Company.find();
+      if (!companies || companies.length === 0) {
+        return res.status(404).json({
+          message: "No companies found.",
+          success: false,
+        });
+      }
+      companies = companies.map(comp => ({
+        ...comp._doc,
+        name: comp.companyName,
+      }));
     }
 
     return res.status(200).json({
       message: "Companies retrieved successfully.",
-      company: Array.isArray(company)
-        ? company.map(comp => ({
-            name: comp.companyName,
-            ...comp._doc, // Spread all properties
-          }))
-        : { name: company.companyName, ...company._doc },
+      company: companies,
     });
-
   } catch (error) {
     console.error("Error fetching company:", error);
     res.status(500).json({
@@ -175,6 +234,9 @@ export const getCompany = async (req, res) => {
     });
   }
 };
+
+
+
 export const getCompanyById = async (req, res) => {
   try {
     const company = await Company.findById(req.params.id);
@@ -200,22 +262,66 @@ export const getCompanyById = async (req, res) => {
   }
 };
 
+
 export const updateCompany = async (req, res) => {
   try {
     const { id } = req.params; // Get the company ID from the route params
     const updateData = req.body; // Get the update data from the request body
 
-    // Ensure the request body has data to update
-    if (Object.keys(updateData).length === 0) {
+    // Define the fields you allow to update, matching your schema
+    const allowedFields = [
+      'companyName',
+      'companyWebsite',
+      'companyDescription',
+      'companyIndustry',
+      'companySize',
+      'location',
+      'contactEmail',
+      'contactPhone'
+    ];
+    
+    // Filter out any keys that are not allowed or have undefined values
+    const filteredData = Object.keys(updateData).reduce((acc, key) => {
+      if (allowedFields.includes(key) && updateData[key] !== undefined) {
+        acc[key] = updateData[key];
+      }
+      return acc;
+    }, {});
+
+    // Check if a new logo file is provided in the request (via multer)
+    if (req.file) {
+      let companyLogoUrl;
+      const bufferStream = new stream.PassThrough();
+      bufferStream.end(req.file.buffer);
+
+      // Upload the file to Cloudinary
+      const uploadStream = cloudinary.v2.uploader.upload_stream({
+        folder: "company_logos", // Cloudinary folder for storing company logos
+        resource_type: "image",
+        public_id: `company_${Date.now()}`, // Unique public ID
+      });
+
+      companyLogoUrl = await new Promise((resolve, reject) => {
+        bufferStream.pipe(uploadStream)
+          .on("finish", (result) => resolve(result.secure_url))
+          .on("error", (error) => reject(error));
+      });
+
+      // Include the logo URL in the filtered update data
+      filteredData.companyLogo = companyLogoUrl;
+    }
+
+    // Ensure there is data to update
+    if (Object.keys(filteredData).length === 0) {
       return res.status(400).json({
-        message: "No data provided to update.",
+        message: "No valid data provided to update.",
       });
     }
 
-    // Find and update the company
+    // Find and update the company document
     const updatedCompany = await Company.findByIdAndUpdate(
       id,
-      { $set: updateData }, // Update only the provided fields
+      { $set: filteredData }, // Only update allowed fields
       { new: true, runValidators: true } // Return the updated document and run validation
     );
 
@@ -238,6 +344,9 @@ export const updateCompany = async (req, res) => {
     });
   }
 };
+
+
+
 
 
 // Disable a company
@@ -276,6 +385,56 @@ export const disableCompany = async (req, res) => {
     return res.status(500).json({
       message: "An error occurred while disabling the company.",
       success: false,
+    });
+  }
+};
+
+// Activate a company (only the single built-in admi
+
+export const activateCompany = async (req, res) => {
+  try {
+    console.log("activateCompany - req.user:", req.user);
+
+    if (!req.user) {
+      return res.status(403).json({
+        message: "Authentication required.",
+        success: false,
+      });
+    }
+
+    // Check that the user has the admin role (email check removed)
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        message: "Only admins can activate companies.",
+        success: false,
+      });
+    }
+
+    // Find and update the company only if it's currently disabled
+    const company = await Company.findOneAndUpdate(
+      { _id: req.params.id, status: "disabled" },
+      { status: "active" },
+      { new: true }
+    );
+
+    if (!company) {
+      return res.status(404).json({
+        message: "Company not found or is already active.",
+        success: false,
+      });
+    }
+
+    return res.status(200).json({
+      message: "Company has been activated.",
+      company,
+      success: true,
+    });
+  } catch (error) {
+    console.error("Error in activateCompany:", error);
+    return res.status(500).json({
+      message: "An error occurred while activating the company.",
+      success: false,
+      error: error.message,
     });
   }
 };

@@ -26,7 +26,6 @@ export const seedAdmin = async () => {
             password: hashedPassword,  // Store hashed password
             role: "Admin",
             profile: {
-                bio: "Administrator account",
                 skills: [],
                 resume: "",
                 education: "N/A",
@@ -77,10 +76,9 @@ export const register = async (req, res) => {
             city,
             state,
             profile: {
-                bio: "",
                 skills: [],
-                education: "",
-                experience: "",
+                education: {},
+                experience: {},
                 gender: "",
                 profilePhoto: "" // Default empty profile photo
             },
@@ -109,10 +107,10 @@ export const register = async (req, res) => {
 // User Login
 export const login = async (req, res) => {
     try {
-        const { email, password, role } = req.body;
+        const { email, password } = req.body;
 
-        if (!email || !password || !role) {
-            return res.status(400).json({ message: "Email, password, and role are required.", success: false });
+        if (!email || !password) {
+            return res.status(400).json({ message: "Email and password are required.", success: false });
         }
 
         const user = await User.findOne({ email }).select("+password");
@@ -120,21 +118,13 @@ export const login = async (req, res) => {
             return res.status(400).json({ message: "Invalid email or password.", success: false });
         }
 
-        // Check password first
+        // Check password
         const isPasswordMatch = await bcrypt.compare(password, user.password);
         if (!isPasswordMatch) {
             return res.status(400).json({ message: "Invalid email or password.", success: false });
         }
 
-        // Check role case-insensitively
-        if (role.trim().toLowerCase() !== user.role.trim().toLowerCase()) {
-            return res.status(403).json({
-                message: "Access denied. Incorrect role.",
-                success: false,
-            });
-        }
-
-        // Generate JWT token
+        // Generate JWT token using the role from the database
         const token = jwt.sign(
             { userId: user._id, role: user.role },
             process.env.SECRET_KEY,
@@ -156,12 +146,12 @@ export const login = async (req, res) => {
     }
 };
 
+
 export const updateProfile = async (req, res) => {
     try {
         const {
             fullname,
             phoneNumber,
-            bio,
             skills,
             education,
             experience,
@@ -169,8 +159,9 @@ export const updateProfile = async (req, res) => {
             gender,
             city,
             state,
-            dob, // Added dob field
-            fileType, // Check fileType to distinguish between resume or profile photo
+            address, // Added address field
+            dob,
+            fileType,
         } = req.body;
 
         // Validate authenticated user
@@ -189,28 +180,49 @@ export const updateProfile = async (req, res) => {
                 return res.status(400).json({ message: "Invalid phone number.", success: false });
             }
         }
-        if (bio) user.profile.bio = bio;
+        
         if (skills) user.profile.skills = skills.split(",").map(skill => skill.trim());
-        if (education) user.profile.education = education;
-        if (experience) user.profile.experience = experience;
+        if (address) user.address = address; // Update address field
 
-        // Assign Company ObjectId if company name is provided
+        if (education) {
+            try {
+                const educationData = typeof education === "string" ? JSON.parse(education) : education;
+                if (!Array.isArray(educationData)) {
+                    return res.status(400).json({ message: "Education data must be an array.", success: false });
+                }
+                user.profile.education = educationData;
+            } catch (err) {
+                return res.status(400).json({ message: "Invalid education data format.", success: false });
+            }
+        }
+
+        if (experience) {
+            try {
+                const experienceData = typeof experience === "string" ? JSON.parse(experience) : experience;
+                if (!Array.isArray(experienceData)) {
+                    return res.status(400).json({ message: "Experience data must be an array.", success: false });
+                }
+                user.profile.experience = experienceData;
+            } catch (err) {
+                return res.status(400).json({ message: "Invalid experience data format.", success: false });
+            }
+        }
+
         if (company) {
             const companyDoc = await Company.findOne({ companyName: company });
             if (!companyDoc) {
                 return res.status(404).json({ message: "Company not found.", success: false });
             }
-            user.profile.company = companyDoc._id; // Assign company ObjectId
+            user.profile.company = companyDoc._id;
         }
 
         if (gender) user.profile.gender = gender;
         if (city) user.city = city;
         if (state) user.state = state;
 
-        // Handle the dob field
         if (dob) {
-            const parsedDob = new Date(dob);  // Convert the provided date to a Date object
-            if (parsedDob instanceof Date && !isNaN(parsedDob)) { // Check if the date is valid
+            const parsedDob = new Date(dob);
+            if (parsedDob instanceof Date && !isNaN(parsedDob)) {
                 user.profile.dob = parsedDob;
             } else {
                 return res.status(400).json({ message: "Invalid date of birth.", success: false });
@@ -219,55 +231,33 @@ export const updateProfile = async (req, res) => {
 
         // Handle file upload for profile photo or resume
         if (req.file) {
-            const file = req.file;  // Get file from request
-            console.log("File details:", file);  // Log file details for debugging
+            const file = req.file;
+            console.log("File details:", file);
 
-            // Handle profile photo upload
             if (fileType && fileType.toLowerCase() === "profilephoto") {
                 try {
                     const cloudResponse = await cloudinary.uploader.upload(file.path, { 
                         folder: "User_Profile_Photos",
                     });
                     user.profile.profilePhoto = cloudResponse.secure_url;
-                    console.log("Profile photo uploaded:", cloudResponse.secure_url);
                 } catch (error) {
-                    console.error("Error uploading profile photo:", error);
-                    return res.status(500).json({
-                        message: "Error uploading profile photo to Cloudinary.",
-                        success: false,
-                    });
+                    return res.status(500).json({ message: "Error uploading profile photo.", success: false });
                 }
             }
 
-            // Handle resume upload
             if (fileType && fileType.toLowerCase() === "resume") {
                 try {
-                    // Convert file buffer to a data URI for Cloudinary
                     const dataUri = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
-                    
-                    // Upload the resume
                     const cloudResponse = await cloudinary.uploader.upload(dataUri, { 
                         folder: "User_Resumes",
-                        resource_type: "raw",  // Use "raw" for non-image files like PDFs
+                        resource_type: "raw",
                     });
-
-                    console.log("Cloudinary Response for Resume:", cloudResponse); // Log response for debugging
-
-                    // Save the secure URL and original file name in the user's profile
-                    user.profile.resume = cloudResponse.secure_url; // Store the URL of the uploaded resume
-                    user.profile.resumeOriginalName = file.originalname; // Save the original file name
-
-                    console.log("Resume uploaded:", cloudResponse.secure_url);
+                    user.profile.resume = cloudResponse.secure_url;
+                    user.profile.resumeOriginalName = file.originalname;
                 } catch (error) {
-                    console.error("Error uploading resume to Cloudinary:", error);
-                    return res.status(500).json({
-                        message: "Error uploading resume to Cloudinary.",
-                        success: false,
-                    });
+                    return res.status(500).json({ message: "Error uploading resume.", success: false });
                 }
             }
-        } else {
-            console.log("No file uploaded.");
         }
 
         // Save the updated user profile
@@ -279,7 +269,6 @@ export const updateProfile = async (req, res) => {
             user,
         });
     } catch (error) {
-        console.error("Error updating profile:", error);
         return res.status(500).json({
             message: "An error occurred while updating the profile.",
             success: false,
@@ -466,24 +455,6 @@ export const resetPassword = async (req, res) => {
 };
 
 
-// Delete Account
-export const deleteAccount = async (req, res) => {
-    try {
-        const userId = req.user._id; // Middleware authentication
-
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({ message: "User not found.", success: false });
-        }
-
-        // Delete user account
-        await user.deleteOne();
-
-        res.status(200).json({ message: "Account deleted successfully.", success: true });
-    } catch (error) {
-        res.status(500).json({ message: error.message, success: false });
-    }
-};
 
 
 // Update Password
@@ -526,4 +497,52 @@ export const updatePassword = async (req, res) => {
         res.status(500).json({ message: error.message, success: false });
     }
 };
+
+
+export const disableUser = async (req, res) => {
+  try {
+    const userIdToDisable = req.params.id;
+    const currentUser = req.user;
+    
+    // Allow admin to disable any user.
+    // Non-admins (jobseeker or recruiter) can only disable their own account.
+    if (
+      currentUser.role.toLowerCase() !== "admin" &&
+      currentUser._id.toString() !== userIdToDisable
+    ) {
+      return res.status(403).json({
+        message: "Unauthorized: You can only disable your own account.",
+        success: false,
+      });
+    }
+    
+    // Find and update the user only if their status is "Active"
+    const user = await User.findOneAndUpdate(
+      { _id: userIdToDisable, status: "Active" },
+      { status: "Inactive" },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found or already disabled.",
+        success: false,
+      });
+    }
+
+    return res.status(200).json({
+      message: "User disabled successfully.",
+      user,
+      success: true,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Internal Server Error",
+      error: error.message,
+      success: false,
+    });
+  }
+};
+
+
 

@@ -3,7 +3,7 @@ import User from "../models/user.model.js";
 import sendEmail from "../utils/sendEmail.js";
 import mongoose from "mongoose";
 
-// Create Event (Only accessible by Recruiter)
+// Create Event (Only accessible by Recruiter and admin )
 export const createEvent = async (req, res) => {
     try {
         if (!req.user || !req.user.role) {

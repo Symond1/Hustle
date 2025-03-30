@@ -1,105 +1,151 @@
 import Application from "../models/application.model.js";
 import Job from "../models/job.model.js";
-import jwt from 'jsonwebtoken';  // Added missing import
-import mongoose from "mongoose"; // Added mongoose for ObjectId validation
+import User from "../models/user.model.js";
+import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 // Middleware to authenticate the user (example: JWT Authentication)
 export const authenticate = (req, res, next) => {
-    try {
-        const token = req.cookies.token; // assuming you're using cookies for JWT
-        if (!token) {
-            return res.status(401).json({ message: 'Unauthorized' });
-        }
-        const decoded = jwt.verify(token, process.env.JWT_SECRET, { ignoreExpiration: false });
-        req.user = decoded; // Attach user data to the request
-        next();
-    } catch (err) {
-        console.error(err);
-        return res.status(401).json({ message: 'Invalid or expired token' });
+  try {
+    const token = req.cookies.token;
+    if (!token) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+      ignoreExpiration: false,
+    });
+    req.user = decoded;
+    next();
+  } catch (err) {
+    console.error(err);
+    return res.status(401).json({ message: "Invalid or expired token" });
+  }
 };
 
 export const applyJob = async (req, res) => {
-    try {
-        // Step 1: Check if the user is logged in
-        if (!req.user || !req.user.role) {
-            return res.status(401).json({
-                message: "Please log in to apply for a job.",
-                success: false
-            });
-        }
-
-        // Step 2: Check if the user has the 'jobSeeker' role
-        if (req.user.role.toLowerCase() !== "jobseeker") {
-            return res.status(403).json({
-                message: "Only job seekers can apply for jobs. Please log in as a job seeker.",
-                success: false
-            });
-        }
-
-        const userId = req.user._id;  // User ID from JWT
-        const jobId = req.params.id;   // Job ID from request params
-
-        console.log("Job ID:", jobId);
-        console.log("User ID:", userId);
-
-        if (!jobId) {
-            return res.status(400).json({
-                message: "Job ID is required.",
-                success: false
-            });
-        }
-
-        // Step 3: Check if the job ID is a valid MongoDB ObjectId
-        if (!mongoose.Types.ObjectId.isValid(jobId)) {
-            return res.status(400).json({
-                message: "Invalid job ID format.",
-                success: false
-            });
-        }
-
-        // Step 4: Check if the user has already applied for the job
-        const existingApplication = await Application.findOne({ job: jobId, applicant: userId });
-        if (existingApplication) {
-            return res.status(400).json({
-                message: "You have already applied for this job.",
-                success: false
-            });
-        }
-
-        // Step 5: Check if the job exists
-        const job = await Job.findById(jobId);
-        if (!job) {
-            return res.status(404).json({
-                message: "Job not found.",
-                success: false
-            });
-        }
-
-        // Step 6: Create a new application for the job
-        const newApplication = await Application.create({
-            job: jobId,
-            applicant: userId,  // Assigning the logged-in user as the applicant
-            status: 'pending',   // Default status is 'pending'
-        });
-
-        // Step 7: Link the new application to the job
-        job.applications.push(newApplication._id);
-        await job.save();
-
-        return res.status(201).json({
-            message: "Job applied successfully.",
-            success: true
-        });
-
-    } catch (error) {
-        console.error(error);
-        return res.status(500).json({
-            message: "Internal server error.",
-            success: false
-        });
+  try {
+    // Step 1: Verify that the user is logged in and has a role
+    if (!req.user || !req.user.role) {
+      return res.status(401).json({
+        message: "Please log in to apply for a job.",
+        success: false,
+      });
     }
+
+    // Step 2: Ensure the user has the 'jobSeeker' role
+    if (req.user.role.toLowerCase() !== "jobseeker") {
+      return res.status(403).json({
+        message:
+          "Only job seekers can apply for jobs. Please log in as a job seeker.",
+        success: false,
+      });
+    }
+
+    const userId = req.user._id;
+    const jobId = req.params.id;
+
+    console.log("Job ID:", jobId);
+    console.log("User ID:", userId);
+
+    if (!jobId) {
+      return res.status(400).json({
+        message: "Job ID is required.",
+        success: false,
+      });
+    }
+
+    // Validate the job ID format
+    if (!mongoose.Types.ObjectId.isValid(jobId)) {
+      return res.status(400).json({
+        message: "Invalid job ID format.",
+        success: false,
+      });
+    }
+
+    // Check if the user has already applied for the job
+    const existingApplication = await Application.findOne({
+      job: jobId,
+      applicant: userId,
+    });
+    if (existingApplication) {
+      return res.status(400).json({
+        message: "You have already applied for this job.",
+        success: false,
+      });
+    }
+
+    // Verify the job exists
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({
+        message: "Job not found.",
+        success: false,
+      });
+    }
+
+    // Fetch the latest job seeker profile
+    const jobSeeker = await User.findById(userId);
+    if (!jobSeeker) {
+      return res.status(404).json({
+        message: "Job seeker profile not found.",
+        success: false,
+      });
+    }
+
+    console.log(
+      "Job Seeker Profile:",
+      JSON.stringify(jobSeeker.profile, null, 2)
+    );
+
+    // Instead of treating education as a simple string, extract qualification
+    // from the first education entry’s degree if available.
+    const qualification =
+      jobSeeker.profile.education &&
+      Array.isArray(jobSeeker.profile.education) &&
+      jobSeeker.profile.education.length > 0 &&
+      jobSeeker.profile.education[0].degree &&
+      jobSeeker.profile.education[0].degree.trim() !== ""
+        ? jobSeeker.profile.education[0].degree
+        : "fresher";
+
+    const experienceStatus =
+      jobSeeker.profile.experience &&
+      Array.isArray(jobSeeker.profile.experience) &&
+      jobSeeker.profile.experience.length > 0
+        ? "experienced"
+        : "fresher";
+
+    // Create a new application for the job.
+    const newApplication = await Application.create({
+      job: jobId,
+      applicant: userId,
+      status: "pending", // Default status is 'pending'
+      experienceStatus, // Based on work experience
+      qualification, // Qualification extracted from education or "fresher" if not provided
+    });
+
+    // Link the new application to the job document.
+    job.applications.push(newApplication._id);
+    await job.save();
+
+    return res.status(201).json({
+      message: "Job applied successfully.",
+      success: true,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "Internal server error.",
+      success: false,
+    });
+  }
 };
+
+
+
+// ... (rest of your code remains unchanged)
+
+
 
 
 
@@ -131,8 +177,9 @@ export const getAppliedJobs = async (req, res) => {
         const applicationsWithStatus = applications.map(application => ({
             job: application.job,
             status: application.status, // Application status (e.g., pending, accepted)
-            applicantResume: application.applicantResume, // Resume info (assuming you store this)
+            applicantResume: application.applicantResume, // Resume info (if stored)
             createdAt: application.createdAt,
+            experienceStatus: application.experienceStatus, // "experienced" or "fresher"
         }));
 
         return res.status(200).json({

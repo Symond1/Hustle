@@ -1,5 +1,6 @@
 import Job from "../models/job.model.js";
 import User from "../models/user.model.js";
+import Company from "../models/company.model.js";
 
 // Defining constants for statuses
 const JOB_STATUS = {
@@ -7,12 +8,14 @@ const JOB_STATUS = {
   DISABLED: "Disabled",
 };
 
-// Recruiter can post a job
 export const postJob = async (req, res) => {
   try {
     const { role } = req.user;
+    const lowerRole = role.toLowerCase();
+    const userId = req.user._id;
 
-    if (role.toLowerCase() !== "recruiter") {
+    // Allow only recruiters and admins to post jobs.
+    if (lowerRole !== "recruiter" && lowerRole !== "admin") {
       return res.status(403).json({
         message: "You are not authorized to post jobs.",
         success: false,
@@ -20,15 +23,34 @@ export const postJob = async (req, res) => {
     }
 
     const {
-      title, jobType, location, description, responsibilities,
-      qualifications, salary, jobNiche, industry, companyId, companyName, position   
+      title,
+      jobType,
+      location,
+      description,
+      responsibilities,
+      qualifications,
+      salary,
+      jobNiche,
+      industry,
+      companyName, // for display purposes
+      position,
+      companyId,   // Only relevant for admin or recruiter reference
     } = req.body;
 
-    const userId = req.user._id;
-
     // Validate required fields
-    if (!title || !jobType || !location || !description || 
-        !responsibilities || !qualifications || !salary || !companyName || !jobNiche || !industry || !position ) {
+    if (
+      !title ||
+      !jobType ||
+      !location ||
+      !description ||
+      !responsibilities ||
+      !qualifications ||
+      !salary ||
+      !companyName ||
+      !jobNiche ||
+      !industry ||
+      !position
+    ) {
       return res.status(400).json({
         message: "All required fields must be provided.",
         success: false,
@@ -41,11 +63,49 @@ export const postJob = async (req, res) => {
         success: false,
       });
     }
+
     if (isNaN(position) || position <= 0) {
       return res.status(400).json({
         message: "Position must be a positive number.",
         success: false,
       });
+    }
+
+    let finalCompanyId;
+
+    if (lowerRole === "recruiter") {
+      // Recruiters can only post jobs for the company they registered.
+      const company = await Company.findOne({ createdBy: userId });
+      if (!company) {
+        return res.status(400).json({
+          message: "You have not registered a company yet.",
+          success: false,
+        });
+      }
+      // If a companyId is provided, it must match the recruiter’s own company
+      if (companyId && companyId !== company._id.toString()) {
+        return res.status(400).json({
+          message: "Recruiters are only allowed to post jobs for their own company.",
+          success: false,
+        });
+      }
+      finalCompanyId = company._id;
+    } else if (lowerRole === "admin") {
+      // Admins must provide a valid companyId.
+      if (!companyId) {
+        return res.status(400).json({
+          message: "Company ID is required when posting as an admin.",
+          success: false,
+        });
+      }
+      const company = await Company.findById(companyId);
+      if (!company) {
+        return res.status(400).json({
+          message: "The provided company does not exist.",
+          success: false,
+        });
+      }
+      finalCompanyId = companyId;
     }
 
     const job = await Job.create({
@@ -59,14 +119,14 @@ export const postJob = async (req, res) => {
       jobNiche,
       industry,
       position,
-      companyName, 
+      companyName,
       postedBy: userId,
-      company: companyId,  // Only pass companyId, not companyName
+      company: finalCompanyId,
       status: JOB_STATUS.OPEN,
     });
 
-    // Populate company after job is created
-    const populatedJob = await job.populate('company', 'companyName companyLogo');
+    // Populate company details after job is created
+    const populatedJob = await job.populate("company", "companyName companyLogo");
 
     return res.status(201).json({
       message: "Job created successfully.",
@@ -81,6 +141,11 @@ export const postJob = async (req, res) => {
     });
   }
 };
+
+
+
+
+
 
 
 export const getAllJobs = async (req, res) => {
@@ -190,54 +255,104 @@ export const getAdminJobs = async (req, res) => {
 };
 
 // Disable a job
+// Disable a job
 export const disableJob = async (req, res) => {
   try {
-    const { role, _id } = req.user;
-    const jobId = req.params.id;
+    if (
+      req.user?.role?.toLowerCase() !== "recruiter" &&
+      req.user?.role?.toLowerCase() !== "admin"
+    ) {
+      return res.status(403).json({
+        message: "Only admin or recruiters can disable jobs.",
+        success: false,
+      });
+    }
 
-    const job = await Job.findById(jobId);
+    // Build query: only update if job is "Open".
+    // Recruiters can only disable their own jobs.
+    let query = { _id: req.params.id, status: "Open" };
+    if (req.user.role.toLowerCase() === "recruiter") {
+      query.postedBy = req.user._id;
+    }
+
+    const job = await Job.findOneAndUpdate(
+      query,
+      { status: "Disabled" },
+      { new: true }
+    );
 
     if (!job) {
       return res.status(404).json({
-        message: "Job not found.",
+        message: "Job not found or access denied.",
         success: false,
       });
     }
-
-    if (job.status === JOB_STATUS.DISABLED) {
-      return res.status(400).json({
-        message: "Job is already disabled.",
-        success: false,
-      });
-    }
-
-    if (
-      role.toLowerCase() !== "admin" && 
-      job.postedBy.toString() !== _id.toString()
-    ) {
-      return res.status(403).json({
-        message: "Unauthorized access.",
-        success: false,
-      });
-    }
-
-    job.status = JOB_STATUS.DISABLED;
-    await job.save();
 
     return res.status(200).json({
-      message: "Job disabled successfully.",
+      message: "Job has been disabled.",
+      job,
       success: true,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Error:", error);
     return res.status(500).json({
-      message: "Something went wrong.",
+      message: "An error occurred while disabling the job.",
       success: false,
     });
   }
 };
 
- //added by N for applicants for job by id
+
+// Enable a job
+export const enableJob = async (req, res) => {
+  try {
+    if (
+      req.user?.role?.toLowerCase() !== "recruiter" &&
+      req.user?.role?.toLowerCase() !== "admin"
+    ) {
+      return res.status(403).json({
+        message: "Only admin or recruiters can enable jobs.",
+        success: false,
+      });
+    }
+
+    // Recruiters can only enable their own jobs.
+    let query = { _id: req.params.id, status: "Disabled" };
+    if (req.user.role.toLowerCase() === "recruiter") {
+      query.postedBy = req.user._id;
+    }
+
+    const job = await Job.findOneAndUpdate(
+      query,
+      { status: "Open" },
+      { new: true }
+    );
+
+    if (!job) {
+      return res.status(404).json({
+        message: "Job not found or is already active.",
+        success: false,
+      });
+    }
+
+    return res.status(200).json({
+      message: "Job has been enabled.",
+      job,
+      success: true,
+    });
+  } catch (error) {
+    console.error("Error in enableJob:", error);
+    return res.status(500).json({
+      message: "An error occurred while enabling the job.",
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+
+
+
  export const getApplicantsForJob = async (req, res) => {
   try {
       const { id } = req.params; 
