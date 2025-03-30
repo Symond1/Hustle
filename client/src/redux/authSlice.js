@@ -1,4 +1,3 @@
-// redux/authSlice.js
 import { createSlice } from "@reduxjs/toolkit";
 
 const authSlice = createSlice({
@@ -60,6 +59,13 @@ const authSlice = createSlice({
         (job) => job.id !== action.payload
       );
     },
+
+    // NEW: Set or update the companyId for the logged-in user (recruiter)
+    setUserCompanyId: (state, action) => {
+      if (state.user) {
+        state.user.companyId = action.payload;
+      }
+    },
   },
 });
 
@@ -72,9 +78,9 @@ export const {
   setSavedJobs,
   addSavedJob,
   removeSavedJob,
+  setUserCompanyId, // NEW reducer exported
 } = authSlice.actions;
 
-// Named export for the `token` selector
 export const selectToken = (state) => state.auth.token;
 
 export default authSlice.reducer;

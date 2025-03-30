@@ -5,7 +5,6 @@ import { Button } from "./ui/button";
 import { Contact, Mail, Pen, Trash } from "lucide-react";
 import { Badge } from "./ui/badge";
 import AppliedJobTable from "./AppliedJobTable";
-import UpdateProfileDialog from "./UpdateProfileDialog";
 import { Label } from "./ui/label";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -14,8 +13,7 @@ import axios from "axios";
 import { logout } from "@/redux/authSlice"; // Assuming a logout action exists
 
 const Profile = () => {
-    const [open, setOpen] = useState(false);
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false); // State for delete confirmation popup
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const { user } = useSelector((store) => store.auth);
     const { allAppliedJobs } = useSelector((store) => store.job);
     const dispatch = useDispatch();
@@ -27,16 +25,18 @@ const Profile = () => {
         return <div className="text-center py-10 text-gray-500">Loading...</div>;
     }
 
-    const userRole = user?.role?.toLowerCase(); // Case-insensitive role check
+    const userRole = user?.role?.toLowerCase();
 
     const handleDeleteAccount = async () => {
         try {
-            const response = await axios.delete("/api/v1/profile", {
-                withCredentials: true, // Include cookies for authentication
-            });
+            const response = await axios.patch(
+                "/api/v1/disable-account",
+                {},
+                { withCredentials: true }
+            );
             if (response.data.success) {
-                dispatch(logout()); // Dispatch logout action
-                navigate("/login"); // Redirect to login or home page
+                dispatch(logout());
+                navigate("/login");
             } else {
                 console.error("Failed to disable account:", response.data.message);
             }
@@ -44,6 +44,14 @@ const Profile = () => {
             console.error("Error disabling account:", error);
         }
     };
+
+    // Fallback functions to ensure education and experience are arrays
+    const educationArray = Array.isArray(user?.profile?.education)
+        ? user.profile.education
+        : [];
+    const experienceArray = Array.isArray(user?.profile?.experience)
+        ? user.profile.experience
+        : [];
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
@@ -59,15 +67,15 @@ const Profile = () => {
                             />
                         </Avatar>
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-800">{user?.fullname}</h1>
-                            <p className="text-gray-600 text-sm mt-1 italic">
-                                {user?.profile?.bio || "Bio not available"}
-                            </p>
+                            <h1 className="text-3xl font-bold text-gray-800">
+                                {user?.fullname}
+                            </h1>
                         </div>
                     </div>
                     <div className="flex gap-4">
                         <Button
-                            onClick={() => setOpen(true)}
+                            // Navigate to the update profile page when clicked
+                            onClick={() => navigate("/UpdateProfileDialog")}
                             className="text-gray-600 hover:bg-gray-200 hover:text-gray-800 p-2 rounded-lg transition-colors duration-200"
                             variant="outline"
                         >
@@ -92,56 +100,97 @@ const Profile = () => {
                     </div>
                     <div className="flex items-center gap-3 text-gray-700">
                         <Contact className="text-gray-500" />
-                        <span>{user?.phoneNumber || "Phone number not provided"}</span>
+                        <span>{user?.phoneNumber || "Add your phone number"}</span>
                     </div>
                 </div>
 
                 <div className="border-t border-gray-200 my-6"></div>
 
+                {/* Conditional rendering for Recruiter vs. Jobseeker */}
                 {user?.profile && (
-                    <div className="grid grid-cols-2 gap-6">
-                        <div className="text-gray-700">
-                            <strong>Education:</strong> {user?.profile?.education || "Not provided"}
-                        </div>
-                        <div className="text-gray-700">
-                            <strong>Experience:</strong> {user?.profile?.experience || "Not provided"}
-                        </div>
-                        <div className="text-gray-700">
-                            <strong>Gender:</strong> {user?.profile?.gender || "Not provided"}
-                        </div>
-                        
-                        <div className="text-gray-700">
-                            <strong>Date of Birth:</strong> {user?.profile?.dob ? new Date(user.profile.dob).toLocaleDateString() : "Not provided"}
-                        </div>
-                        <div className="text-gray-700">
-                            <strong>City:</strong> {user?.city || "Not provided"}
-                        </div>
-                        <div className="text-gray-700">
-                            <strong>State:</strong> {user?.state || "Not provided"}
-                        </div>
-                    </div>
+                    <>
+                        {userRole === "recruiter" ? (
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="text-gray-700">
+                                    <strong>Gender:</strong>{" "}
+                                    {user?.profile?.gender || "Add your gender"}
+                                </div>
+                                <div className="text-gray-700">
+                                    <strong>City:</strong> {user?.city || "Add your city"}
+                                </div>
+                                <div className="text-gray-700">
+                                    <strong>State:</strong> {user?.state || "Add your state"}
+                                </div>
+                                <div className="text-gray-700">
+                                    <strong>Address:</strong> {user?.address || "Add your address"}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="text-gray-700">
+                                    <strong>Education:</strong>
+                                    {educationArray.length > 0 ? (
+                                        <ul className="list-disc ml-5 mt-2">
+                                            {educationArray.map((edu, index) => (
+                                                <li key={index} className="mb-1">
+                                                    {edu.degree} {edu.fieldOfStudy}{" "}
+                                                    {edu.startDate
+                                                        ? new Date(edu.startDate).toLocaleDateString()
+                                                        : "Add Your"} -{" "}
+                                                    {edu.endDate
+                                                        ? new Date(edu.endDate).toLocaleDateString()
+                                                        : "Education Qualification"}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        " Add your education"
+                                    )}
+                                </div>
+                                <div className="text-gray-700">
+                                    <strong>Experience:</strong>
+                                    {experienceArray.length > 0 ? (
+                                        <ul className="list-disc ml-5 mt-2">
+                                            {experienceArray.map((exp, index) => (
+                                                <li key={index} className="mb-1">
+                                                    {exp.role} {exp.companyName}{" "}
+                                                    {exp.startDate
+                                                        ? new Date(exp.startDate).toLocaleDateString()
+                                                        : "Add Your"}{" "}
+                                                    {exp.endDate
+                                                        ? new Date(exp.endDate).toLocaleDateString()
+                                                        : "Experience"}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        " Add your experience"
+                                    )}
+                                </div>
+                                <div className="text-gray-700">
+                                    <strong>Gender:</strong> {user?.profile?.gender || "Add your gender"}
+                                </div>
+                                <div className="text-gray-700">
+                                    <strong>Date of Birth:</strong>{" "}
+                                    {user?.profile?.dob
+                                        ? new Date(user.profile.dob).toLocaleDateString()
+                                        : "Add your date of birth"}
+                                </div>
+                                <div className="text-gray-700">
+                                    <strong>City:</strong> {user?.city || "Add your city"}
+                                </div>
+                                <div className="text-gray-700">
+                                    <strong>State:</strong> {user?.state || "Add your state"}
+                                </div>
+                                <div className="text-gray-700">
+                                    <strong>Address:</strong> {user?.address || "Add your address"}
+                                </div>
+                            </div>
+                        )}
+                    </>
                 )}
 
-                <div className="border-t border-gray-200 my-6"></div>
-
-                <div>
-                    <h2 className="text-xl font-semibold text-gray-800 mb-2">Skills</h2>
-                    <div className="flex flex-wrap gap-2">
-                        {user?.profile?.skills.length ? (
-                            user?.profile?.skills.map((item, index) => (
-                                <Badge
-                                    key={index}
-                                    className="bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors duration-200"
-                                >
-                                    {item}
-                                </Badge>
-                            ))
-                        ) : (
-                            <span className="text-gray-600">NA</span>
-                        )}
-                    </div>
-                </div>
-
+                {/* Jobseeker-specific sections */}
                 {userRole === "jobseeker" && (
                     <>
                         <div className="border-t border-gray-200 my-6"></div>
@@ -151,13 +200,28 @@ const Profile = () => {
                             {user?.profile?.resume ? (
                                 <a
                                     target="blank"
-                                    href={user?.profile?.resume}
+                                    href={user.profile.resume}
                                     className="text-blue-500 w-full hover:underline"
                                 >
                                     Download Resume
                                 </a>
                             ) : (
-                                <span className="text-gray-500">No resume available</span>
+                                <span className="text-gray-500">Add your resume</span>
+                            )}
+                        </div>
+
+                        {/* New Skills Section */}
+                        <div className="border-t border-gray-200 my-6"></div>
+                        <div className="grid w-full max-w-sm items-center gap-1.5">
+                            <Label className="text-md font-bold">Skills</Label>
+                            {user?.profile?.skills && user.profile.skills.length > 0 ? (
+                                <ul className="list-disc ml-5 mt-2">
+                                    {user.profile.skills.map((skill, index) => (
+                                        <li key={index}>{skill}</li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <span className="text-gray-500">Add your skills</span>
                             )}
                         </div>
 
@@ -195,8 +259,6 @@ const Profile = () => {
                     </div>
                 </div>
             )}
-
-            <UpdateProfileDialog open={open} setOpen={setOpen} />
         </div>
     );
 };

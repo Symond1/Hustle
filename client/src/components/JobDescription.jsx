@@ -9,178 +9,210 @@ import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'sonner';
 
 const JobDescription = () => {
-  const { singleJob } = useSelector((store) => store.job); // Get job details from Redux
-  const { user, token } = useSelector((store) => store.auth); // Get user info from Redux
+  const { singleJob } = useSelector((store) => store.job);
+  const { user, token } = useSelector((store) => store.auth);
   const dispatch = useDispatch();
-  const navigate = useNavigate(); // Initialize the navigate function
+  const navigate = useNavigate();
   const params = useParams();
   const jobId = params.id;
 
-  // Apply for the job
   const applyJobHandler = async () => {
     if (!user || !token) {
       toast.error("Please log in to apply for a job.");
       return;
     }
-
     try {
-        const res = await axios.post(
-            `${APPLICATION_API_END_POINT}/apply/${jobId}`,
-            {},
-            {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-                withCredentials: true,
-            }
-        );
-
-        if (res.data.success) {
-            const updatedSingleJob = {
-                ...singleJob,
-                applications: [...singleJob.applications, { applicant: user?._id }],
-                isApplied: true,
-            };
-            dispatch(setSingleJob(updatedSingleJob));
-            toast.success(res.data.message);
-        } else {
-            toast.error(res.data.message || "An error occurred");
+      const res = await axios.post(
+        `${APPLICATION_API_END_POINT}/apply/${jobId}`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true,
         }
-    } catch (error) {
-        const errorMessage = error.response?.data?.message || "An error occurred";
-        if (errorMessage === "Please log in to apply for a job.") {
-            toast.error(errorMessage);
-            navigate("/login"); // Redirect to the login page
-        } else {
-            toast.error(errorMessage);
-        }
-    }
-};
-
-useEffect(() => {
-  const fetchSingleJob = async () => {
-    try {
-      const res = await axios.get(`${JOB_API_END_POINT}/get/${jobId}`, {
-        headers: {
-          Authorization: token ? `Bearer ${token}` : "", // Only include token if available
-        },
-        withCredentials: true,
-      });
-
+      );
       if (res.data.success) {
-        const jobData = res.data.job;
-        const isJobApplied = user && jobData.applications.some(
-          (application) => application.applicant === user?._id
-        );
-
-        // Dispatch action to update the job details in Redux
-        dispatch(setSingleJob({ ...jobData, isApplied: isJobApplied }));
+        const updatedSingleJob = {
+          ...singleJob,
+          applications: [...singleJob.applications, { applicant: user?._id }],
+          isApplied: true,
+        };
+        dispatch(setSingleJob(updatedSingleJob));
+        toast.success(res.data.message);
       } else {
-        toast.error(res.data.message || 'Failed to fetch job details');
+        toast.error(res.data.message || "An error occurred");
       }
     } catch (error) {
-      console.error(error);
-      toast.error('Error fetching job details');
+      const errorMessage = error.response?.data?.message || "An error occurred";
+      if (errorMessage === "Please log in to apply for a job.") {
+        toast.error(errorMessage);
+        navigate("/login");
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
 
-  fetchSingleJob();
-}, [jobId, dispatch, user, token]);
+  useEffect(() => {
+    const fetchSingleJob = async () => {
+      try {
+        const res = await axios.get(`${JOB_API_END_POINT}/get/${jobId}`, {
+          headers: { Authorization: token ? `Bearer ${token}` : "" },
+          withCredentials: true,
+        });
+        if (res.data.success) {
+          const jobData = res.data.job;
+          const isJobApplied = user && jobData.applications.some(
+            (application) => application.applicant?.toString() === user?._id.toString()
+          );
+          dispatch(setSingleJob({ ...jobData, isApplied: isJobApplied }));
+        } else {
+          toast.error(res.data.message || 'Failed to fetch job details');
+        }
+      } catch (error) {
+        console.error(error);
+        toast.error('Error fetching job details');
+      }
+    };
+    fetchSingleJob();
+  }, [jobId, dispatch, user, token]);
 
-// Check if the user has already applied based on Redux state
-const isApplied = singleJob?.isApplied || false;
+  const isApplied = singleJob?.isApplied || false;
+  const goBack = () => navigate(-1);
 
-// Function to go back to the previous page
-const goBack = () => {
-  navigate(-1); // This will navigate back to the previous page
-};
+  return (
+    <div className="max-w-4xl mx-auto my-12 p-8 bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-xl border border-gray-100 transition-all duration-300 hover:shadow-2xl">
+      {/* Header & Buttons */}
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-10 gap-4">
+        <Button 
+          onClick={goBack} 
+          className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-full transition-all duration-200 flex items-center gap-2"
+        >
+          <span>←</span> Back
+        </Button>
+        <Button
+          onClick={applyJobHandler}
+          disabled={isApplied}
+          className={`w-full sm:w-auto py-2 px-8 rounded-full font-semibold text-white transition-all duration-200 flex items-center justify-center gap-2 ${
+            isApplied ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
+          }`}
+        >
+          {isApplied ? 'Applied ✓' : 'Apply Now →'}
+        </Button>
+      </div>
 
-return (
-  <div className="max-w-7xl mx-auto my-10 bg-white p-6 rounded-lg shadow-lg">
-    {/* Back Button */}
-    <Button onClick={goBack} className="mb-4">Back</Button>
-
-    <div className="flex items-center justify-between border-b-2 pb-4 mb-6 border-gray-300">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800">{singleJob?.title}</h1>
-        <div className="flex items-center gap-2 mt-4">
-          <Badge className="text-blue-700 font-bold bg-blue-100 rounded-full py-2 px-4">
-            {singleJob?.position} Positions
-          </Badge>
-          <Badge className="text-[#F83002] font-bold bg-[#F83002] text-white rounded-full py-2 px-4">
-            {singleJob?.jobType}
-          </Badge>
-          <Badge className="text-[#7209b7] font-bold bg-[#7209b7] text-white rounded-full py-2 px-4">
-            {singleJob?.salary} LPA
-          </Badge>
+      {/* Job Header */}
+      <div className="mb-10 pb-6 border-b border-gray-200">
+        <h1 className="text-3xl font-bold text-gray-900 mb-4 tracking-tight">{singleJob?.title}</h1>
+        <div className="flex flex-wrap gap-3">
+          <Badge className="bg-blue-100 text-blue-800 font-medium px-3 py-1 rounded-full">📊 {singleJob?.position} Positions</Badge>
+          <Badge className="bg-red-100 text-red-800 font-medium px-3 py-1 rounded-full">⏰ {singleJob?.jobType}</Badge>
+          <Badge className="bg-purple-100 text-purple-800 font-medium px-3 py-1 rounded-full">💰 {singleJob?.salary} LPA</Badge>
         </div>
       </div>
-      <Button
-        onClick={applyJobHandler}
-        disabled={isApplied}
-        className={`rounded-lg py-3 px-6 ${isApplied ? 'bg-gray-500 text-white cursor-not-allowed' : 'bg-[#7209b7] hover:bg-[#5f32ad] text-white'}`}
-      >
-        {isApplied ? 'Already Applied' : 'Apply Now'}
-      </Button>
+
+      {/* Job Details */}
+      <section className="space-y-10">
+        <h2 className="text-2xl font-semibold text-gray-800 border-b border-gray-200 pb-2">Job Details</h2>
+        
+        {/* Description */}
+        <div>
+          <p className="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
+            <span className="text-indigo-500">📝</span> Description
+          </p>
+          <p className="text-gray-700 leading-relaxed pl-6">{singleJob?.description}</p>
+        </div>
+
+        {/* Two-column layout */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+          <div className="space-y-5">
+            <div className="flex items-start gap-2">
+              <span className="text-blue-500 mt-1">👩‍💻</span>
+              <div>
+                <span className="text-sm font-medium text-gray-600">Role</span>
+                <p className="text-gray-800">{singleJob?.title}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-green-500 mt-1">🏢</span>
+              <div>
+                <span className="text-sm font-medium text-gray-600">Company</span>
+                <p className="text-gray-800">{singleJob?.companyName || 'N/A'}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-red-500 mt-1">⏳</span>
+              <div>
+                <span className="text-sm font-medium text-gray-600">Job Type</span>
+                <p className="text-gray-800">{singleJob?.jobType}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-yellow-500 mt-1">📍</span>
+              <div>
+                <span className="text-sm font-medium text-gray-600">Location</span>
+                <p className="text-gray-800">{singleJob?.location}</p>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-5">
+            <div className="flex items-start gap-2">
+              <span className="text-purple-500 mt-1">📅</span>
+              <div>
+                <span className="text-sm font-medium text-gray-600">Posted</span>
+                <p className="text-gray-800">{singleJob?.createdAt?.split('T')[0]}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-teal-500 mt-1">🏭</span>
+              <div>
+                <span className="text-sm font-medium text-gray-600">Industry</span>
+                <p className="text-gray-800">{singleJob?.industry}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-pink-500 mt-1">🎯</span>
+              <div>
+                <span className="text-sm font-medium text-gray-600">Job Niche</span>
+                <p className="text-gray-800">{singleJob?.jobNiche}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-orange-500 mt-1">👥</span>
+              <div>
+                <span className="text-sm font-medium text-gray-600">Positions</span>
+                <p className="text-gray-800">{singleJob?.position}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Responsibilities & Qualifications */}
+        <div className="space-y-6">
+          <div>
+            <p className="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
+              <span className="text-indigo-500">✅</span> Responsibilities
+            </p>
+            <p className="text-gray-700 leading-relaxed pl-6">{singleJob?.responsibilities}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
+              <span className="text-indigo-500">🎓</span> Qualifications
+            </p>
+            <p className="text-gray-700 leading-relaxed pl-6">{singleJob?.qualifications}</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Applicants */}
+      <div className="mt-10 pt-6 border-t border-gray-200">
+        <div className="flex items-center gap-2">
+          <span className="text-indigo-500">👤</span>
+          <span className="text-sm font-medium text-gray-600">Total Applicants:</span>
+          <span className="text-gray-800 font-semibold">{singleJob?.applications?.length || 0}</span>
+        </div>
+      </div>
     </div>
-    
-    <h2 className="text-xl font-medium text-gray-800 border-b-2 border-gray-300 py-4 mb-6">Job Description</h2>
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-      <div className="text-lg font-bold text-gray-700">
-        <span>Role:</span>
-        <span className="pl-4 text-gray-800">{singleJob?.title}</span>
-      </div>
-      <div className="text-lg font-bold text-gray-700">
-        <span>Company:</span>
-        <span className="pl-4 text-gray-800">{singleJob?.companyName || 'Not Available'}</span>
-      </div>
-      <div className="text-lg font-bold text-gray-700">
-        <span>Job Type:</span>
-        <span className="pl-4 text-gray-800">{singleJob?.jobType}</span>
-      </div>
-      <div className="text-lg font-bold text-gray-700">
-        <span>Location:</span>
-        <span className="pl-4 text-gray-800">{singleJob?.location}</span>
-      </div>
-      <div className="text-lg font-bold text-gray-700">
-        <span>Description:</span>
-        <span className="pl-4 text-gray-800">{singleJob?.description}</span>
-      </div>
-      <div className="text-lg font-bold text-gray-700">
-        <span>Responsibilities:</span>
-        <span className="pl-4 text-gray-800">{singleJob?.responsibilities}</span>
-      </div>
-      <div className="text-lg font-bold text-gray-700">
-        <span>Qualifications:</span>
-        <span className="pl-4 text-gray-800">{singleJob?.qualifications}</span>
-      </div>
-      <div className="text-lg font-bold text-gray-700">
-        <span>Salary:</span>
-        <span className="pl-4 text-gray-800">{singleJob?.salary} LPA</span>
-      </div>
-      <div className="text-lg font-bold text-gray-700">
-        <span>Job Niche:</span>
-        <span className="pl-4 text-gray-800">{singleJob?.jobNiche}</span>
-      </div>
-      <div className="text-lg font-bold text-gray-700">
-        <span>Industry:</span>
-        <span className="pl-4 text-gray-800">{singleJob?.industry}</span>
-      </div>
-      <div className="text-lg font-bold text-gray-700">
-        <span>Position:</span>
-        <span className="pl-4 text-gray-800">{singleJob?.position}</span>
-      </div>
-      <div className="text-lg font-bold text-gray-700">
-        <span>Posted Date:</span>
-        <span className="pl-4 text-gray-800">{singleJob?.createdAt?.split('T')[0]}</span>
-      </div>
-    </div>
-    <div className="mt-6 text-lg font-bold text-gray-700">
-      <span>Total Applicants:</span>
-      <span className="pl-4 text-gray-800">{singleJob?.applications?.length}</span>
-    </div>
-  </div>
-);
+  );
 };
 
 export default JobDescription;

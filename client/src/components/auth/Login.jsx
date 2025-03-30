@@ -11,11 +11,10 @@ import { useDispatch, useSelector } from 'react-redux';
 import { setLoading, setUser, setToken } from '@/redux/authSlice';
 import { Loader2 } from 'lucide-react';
 
-const ROLES = ['Jobseeker', 'Recruiter'];
-const ADMIN_EMAIL = "admin@example.com"; // Change this to actual admin email
+const ADMIN_EMAIL = "admin@example.com";
 
 const Login = () => {
-  const [input, setInput] = useState({ email: '', password: '', role: '' });
+  const [input, setInput] = useState({ email: '', password: '' });
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [emailForReset, setEmailForReset] = useState('');
   const { loading, user } = useSelector((store) => store.auth);
@@ -24,31 +23,22 @@ const Login = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-
-    // If the admin email is entered, set role to "Admin" automatically
-    if (name === "email" && value === ADMIN_EMAIL) {
-      setInput({ ...input, email: value, role: "Admin" });
-    } else {
-      setInput((prev) => ({ ...prev, [name]: value }));
-    }
+    setInput((prev) => ({ ...prev, [name]: value }));
   };
 
   const submitLoginHandler = async (e) => {
     e.preventDefault();
 
-    const loginData = {
-      ...input,
-      role: input.email === ADMIN_EMAIL ? "Admin" : input.role, // Force "Admin" role if admin email
-    };
-
     try {
       dispatch(setLoading(true));
-      const res = await axios.post(`${USER_API_END_POINT}/login`, loginData, {
+      // Send only email and password
+      const res = await axios.post(`${USER_API_END_POINT}/login`, input, {
         headers: { 'Content-Type': 'application/json' },
         withCredentials: true,
       });
 
       if (res.data.success) {
+        // The server response should include the user's role along with other info.
         dispatch(setUser(res.data.user));
         dispatch(setToken(res.data.token));
         localStorage.setItem("token", res.data.token);
@@ -87,7 +77,7 @@ const Login = () => {
   return (
     <div>
       <Navbar />
-      <div className="flex items-center justify-center max-w-7xl mx-auto">
+      <div className="flex items-center justify-center max-w-7xl mx-auto mt-20">
         <form onSubmit={submitLoginHandler} className="w-1/2 border border-gray-200 rounded-md p-4 my-10">
           <h1 className="font-bold text-xl mb-5">Login</h1>
 
@@ -113,26 +103,6 @@ const Login = () => {
               onChange={handleInputChange}
               placeholder="Enter your password"
             />
-          </div>
-
-          {/* Role Selection - Disabled if Admin */}
-          <div className="my-5">
-            <Label>Role</Label>
-            <div className="flex gap-4">
-              {ROLES.map((role) => (
-                <label key={role} className="flex items-center space-x-2">
-                  <Input
-                    type="radio"
-                    name="role"
-                    value={role}
-                    checked={input.role === role}
-                    onChange={handleInputChange}
-                    disabled={input.email === ADMIN_EMAIL} // Admin cannot select role
-                  />
-                  {role}
-                </label>
-              ))}
-            </div>
           </div>
 
           {/* Submit Button */}

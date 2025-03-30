@@ -19,7 +19,7 @@ const jobSlice = createSlice({
       state.singleJob = action.payload || null;
     },
     setAllAdminJobs: (state, action) => {
-      // Ensure jobs are filtered by `isActive` field only if they exist in the payload
+      // Assuming that only active jobs should be stored for admin view.
       state.allAdminJobs = (action.payload || []).filter((job) => job.isActive);
     },
     setSearchJobByText: (state, action) => {
@@ -54,6 +54,35 @@ const jobSlice = createSlice({
         ? [...state.allAppliedJobs, { _id: jobId }]
         : state.allAppliedJobs.filter((job) => job._id !== jobId);
     },
+    // Remove this reducer since we now update a job instead of removing it.
+    // removeDisabledJob: (state, action) => { ... },
+
+    // New reducer to update a job's properties (for both disable and enable)
+    updateJob: (state, action) => {
+      const updatedJob = action.payload;
+      // Update in allJobs
+      state.allJobs = state.allJobs.map((job) =>
+        job._id === updatedJob._id ? updatedJob : job
+      );
+      // Update in allAdminJobs if applicable (if job is active, add or update)
+      if (updatedJob.isActive) {
+        const exists = state.allAdminJobs.find((job) => job._id === updatedJob._id);
+        if (exists) {
+          state.allAdminJobs = state.allAdminJobs.map((job) =>
+            job._id === updatedJob._id ? updatedJob : job
+          );
+        } else {
+          state.allAdminJobs.push(updatedJob);
+        }
+      } else {
+        // Remove from admin list if not active
+        state.allAdminJobs = state.allAdminJobs.filter((job) => job._id !== updatedJob._id);
+      }
+      // Optionally update singleJob if it matches
+      if (state.singleJob && state.singleJob._id === updatedJob._id) {
+        state.singleJob = updatedJob;
+      }
+    },
   },
 });
 
@@ -67,6 +96,7 @@ export const {
   setError,
   setJobAppliedStatus,
   setResetAllAppliedJobs,
+  updateJob,
 } = jobSlice.actions;
 
 export default jobSlice.reducer;

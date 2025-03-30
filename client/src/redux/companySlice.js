@@ -7,7 +7,7 @@ const companySlice = createSlice({
     companies: [],
     searchCompanyByText: "", // To store the search text entered by the user
     userId: "",
-    userRole: "Recruiter", // Default role
+    userRole: "", // Default role
   },
   reducers: {
     setSingleCompany: (state, action) => {
@@ -18,11 +18,10 @@ const companySlice = createSlice({
       console.log("Companies received:", companies); // Debugging
       state.companies = companies;
     },
-    
     removeCompany: (state, action) => {
       const companyId = action.payload;
       state.companies = state.companies.filter(
-        (company) => company.id !== companyId
+        (company) => company._id !== companyId
       );
     },
     setSearchCompanyByText: (state, action) => {
@@ -37,7 +36,16 @@ const companySlice = createSlice({
         ? action.payload.toLowerCase() // Make sure to store it in lowercase
         : "recruiter"; // Default to "recruiter" if invalid role
     },
-  
+    // New reducer to update a company in the Redux store
+    updateCompanyInStore: (state, action) => {
+      const updatedCompany = action.payload;
+      state.companies = state.companies.map((company) =>
+        company._id === updatedCompany._id ? updatedCompany : company
+      );
+      if (state.singleCompany && state.singleCompany._id === updatedCompany._id) {
+        state.singleCompany = updatedCompany;
+      }
+    },
   },
 });
 
@@ -48,6 +56,7 @@ export const {
   setSearchCompanyByText,
   setUserId,
   setUserRole,
+  updateCompanyInStore,
 } = companySlice.actions;
 
 export default companySlice.reducer;

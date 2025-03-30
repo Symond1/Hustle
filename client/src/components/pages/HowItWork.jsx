@@ -32,10 +32,10 @@ export default function HowItWorks() {
                 Step 1:
               </div>
               <h1 className="text-3xl text-gray-900 pb-3 font-semibold">
-                Create a profile
+                Create a Profile
               </h1>
               <p className="text-xl font-light">
-                Promote your company to our community of tech people.
+                Promote Your Company To Our Community Of Tech People.
               </p>
             </div>
 
@@ -48,10 +48,10 @@ export default function HowItWorks() {
                 Step 2:
               </div>
               <h1 className="text-3xl text-gray-900 pb-3  font-semibold">
-                Post a job
+                Post a Job
               </h1>
               <p className="text-xl font-light">
-                Write a job description, and hire a real hustlers 
+                Write a Job Description, and Hire a Real Hustlers 
               </p>
             </div>
 
@@ -64,11 +64,11 @@ export default function HowItWorks() {
                 Step 3:
               </div>
               <h1 className="text-3xl  text-gray-900 pb-3 font-semibold">
-                Applicant apply
+                Apply
               </h1>
               <p className="text-xl font-light">
-                Our Hustle community allows users to discover and apply for
-                jobs.
+                Our Hustle Community Allows Users To Discover and Apply for
+                Jobs.
               </p>
             </div>
 
@@ -105,10 +105,10 @@ export default function HowItWorks() {
                 Step 1:
               </div>
               <h1 className="text-3xl text-gray-900 pb-3 font-semibold">
-                Find a job
+                Find a Job
               </h1>
               <p className="text-xl font-light">
-                Find exciting tech jobs on the job board.
+                Find Exciting Tech Jobs On The Job Board.
               </p>
             </div>
 
@@ -121,7 +121,7 @@ export default function HowItWorks() {
                 Step 2:
               </div>
               <h1 className="text-3xl text-gray-900 pb-3  font-semibold">
-                Apply for job
+                Apply For job
               </h1>
               <p className="text-xl font-light">Apply for a job you love.</p>
             </div>
@@ -135,10 +135,10 @@ export default function HowItWorks() {
                 Step 3:
               </div>
               <h1 className="text-3xl  text-gray-900 pb-3 font-semibold">
-                Await approval
+                Await Approval
               </h1>
               <p className="text-xl font-light">
-                Waiting for your job application to be approved by the Recruiter.
+                Waiting For Your Job Application To Be Approved By The Recruiter.
               </p>
             </div>
           </div>
@@ -146,7 +146,7 @@ export default function HowItWorks() {
       ) : (
         <>
           <h1 className="md:text-6xl text-4xl font-bold text-center text-gray-900 ">
-            How <strong>Hustle</strong> works
+            HOW <strong>HUSTLE</strong> WORKS
           </h1>
           <div className="grid lg:grid-cols-3 grid-cols-1 gap-12 md:py-32 py-12 text-center md:w-10/12 w-11/12 mx-auto ">
             <div>
@@ -158,10 +158,10 @@ export default function HowItWorks() {
                 Step 1:
               </div>
               <h1 className="text-3xl text-gray-900 pb-3 font-semibold">
-                Create account
+                Create Account
               </h1>
               <p className="text-xl font-light">
-                Create a user account for Jobseeker or recruiters.
+                Create a User Account For Jobseeker or Recruiters.
               </p>
             </div>
 
@@ -174,10 +174,10 @@ export default function HowItWorks() {
                 Step 2:
               </div>
               <h1 className="text-3xl text-gray-900 pb-3  font-semibold">
-                Log in
+                Log In
               </h1>
               <p className="text-xl font-light">
-                Log in with the account you've created.
+                Log In With The Account You've Created.
               </p>
             </div>
 
@@ -190,10 +190,10 @@ export default function HowItWorks() {
                 Step 3:
               </div>
               <h1 className="text-3xl  text-gray-900 pb-3 font-semibold">
-                Let the Hustle begin
+                Let The Hustle Begin
               </h1>
               <p className="text-xl font-light">
-                Create a job posting or find the job you desire.
+                Create a Job Posting or Find The Job You Desire.
               </p>
             </div>
           </div>

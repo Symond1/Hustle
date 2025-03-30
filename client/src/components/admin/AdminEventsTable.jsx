@@ -12,10 +12,9 @@ import {
   TableRow,
 } from "../ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
-import { Edit2, Eye, MoreHorizontal, FileText } from "lucide-react";
+import { Eye, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 
 const AdminEventsTable = () => {
@@ -26,12 +25,17 @@ const AdminEventsTable = () => {
   const [titleFilter, setTitleFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const navigate = useNavigate();
+
+  // Utility function to determine organizer name:
+  const getOrganizerName = (event) => {
+    return event.Organizer || event.createdBy?.name || "Unknown";
+  };
+
   useEffect(() => {
     const filteredEvents = allEvents.filter((event) => {
-      // Ensure admins can see all events
-      if (user?.role === "Admin") return true;  
-      if (event?.createdBy?._id !== user?._id) return false; // Keep recruiters limited to their own events
-  
+      if (user?.role === "Admin") return true;
+      if (event?.createdBy?._id !== user?._id) return false;
+
       if (
         !searchEventByText &&
         !dateFilter.start &&
@@ -40,7 +44,7 @@ const AdminEventsTable = () => {
         !typeFilter
       )
         return true;
-  
+
       const eventDate = new Date(event?.eventDate);
       const isTextMatch = event?.eventTitle
         ?.toLowerCase()
@@ -54,46 +58,211 @@ const AdminEventsTable = () => {
       const isDateMatch =
         (!dateFilter.start || eventDate >= new Date(dateFilter.start)) &&
         (!dateFilter.end || eventDate <= new Date(dateFilter.end));
-  
+
       return isTextMatch && isDateMatch && isTitleMatch && isTypeMatch;
     });
-  
+
     setFilterEvents(filteredEvents);
   }, [allEvents, searchEventByText, dateFilter, titleFilter, typeFilter, user]);
-  
+
   const getFormattedDate = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
     return isNaN(date.getTime()) ? "" : date.toISOString().split("T")[0];
   };
 
-  // Generate PDF Report
-  const generatePDF = () => {
-    const doc = new jsPDF();
-    doc.text("Events Report", 14, 15);
-    doc.text(`Report Date: ${new Date().toLocaleDateString()}`, 14, 25);
-    autoTable(doc, {
-      startY: 30,
-      head: [["Title", "Type", "Date"]],
-      body: filterEvents.map((event) => [
-        event.eventTitle,
-        event.eventType,
-        getFormattedDate(event.eventDate),
-      ]),
-      didDrawPage: function (data) {
-        doc.text(`Page ${doc.internal.getNumberOfPages()}`, 180, 285);
-      },
-    });
-    doc.save("events_report.pdf");
+  const getFormattedTime = (timeString) => {
+    return timeString || "";
   };
 
-  // Generate Excel Report
+
+  // Render the header on each page
+  const renderHeader = (doc, pageWidth, margin) => {
+    doc.setFillColor(0, 123, 255);
+    doc.rect(0, 0, pageWidth, 30, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.setTextColor(255, 255, 255);
+    doc.text("Report of Events from Hustle", margin, 20);
+    doc.setFontSize(10);
+    const currentDate = new Date().toLocaleString();
+    doc.text(`Generated on: ${currentDate}`, margin, 27);
+    // Display user role if available
+    if (user?.role) {
+      doc.text(`Role: ${user.role}`, pageWidth - margin - 40, 20);
+    }
+    doc.setTextColor(0);
+  };
+
+  // Render the footer on each page
+  const renderFooter = (doc, pageWidth, pageHeight, margin, currentPage) => {
+    const footerY = pageHeight - 10;
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    // Display download name and email from user
+    const downloadName = user?.name || "";
+    const downloadEmail = user?.email || "";
+    doc.text(`Downloaded by: ${downloadName} (${downloadEmail})`, margin, footerY);
+    // Display page number aligned right
+    doc.text(`Page ${currentPage}`, pageWidth - margin - 20, footerY);
+  };
+
+  const generatePDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 14;
+    let yOffset = 35; // start below header
+    let currentPage = 1;
+
+    // Draw header and footer for the first page
+    renderHeader(doc, pageWidth, margin);
+    renderFooter(doc, pageWidth, pageHeight, margin, currentPage);
+
+    // ----------------- Render Event Cards -----------------
+    filterEvents.forEach((event) => {
+      // Check if there is enough space for a card (assume card height = 40)
+      if (yOffset + 40 > pageHeight - margin - 10) {
+        doc.addPage();
+        currentPage++;
+        yOffset = 35;
+        renderHeader(doc, pageWidth, margin);
+        renderFooter(doc, pageWidth, pageHeight, margin, currentPage);
+      }
+
+      // Draw card background
+      doc.setDrawColor(200);
+      doc.setFillColor(245, 245, 245);
+      doc.rect(margin, yOffset, pageWidth - 2 * margin, 35, "FD");
+
+      // Write event details inside the card
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text(event.eventTitle, margin + 2, yOffset + 8);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(`Organizer: ${getOrganizerName(event)}`, margin + 2, yOffset + 14);
+      doc.text(`Type: ${event.eventType || "N/A"}`, margin + 2, yOffset + 20);
+      doc.text(
+        `Date: ${getFormattedDate(event.eventDate)} ${getFormattedTime(event.eventStartTime)}`,
+        margin + 2,
+        yOffset + 26
+      );
+      doc.text(`Location: ${event.location || "N/A"}`, margin + 2, yOffset + 32);
+
+      yOffset += 40; // increment yOffset for next card
+    });
+// ----------------- Graphs Page -----------------
+doc.addPage();
+currentPage++;
+
+// Render static header and footer
+renderHeader(doc, pageWidth, margin);
+renderFooter(doc, pageWidth, pageHeight, margin, currentPage);
+
+// Define content boundaries so graphs don't overlap header/footer
+const contentTop = 35; // content starts just below header
+const contentBottom = pageHeight - 20; // leave room above footer
+
+// ===== Vertical Bar Graph: Events by Price Range =====
+const vLabelY = contentTop + 10;
+doc.setFontSize(12);
+doc.setFont("helvetica", "bold");
+doc.text("Events by Price Range", margin, vLabelY);
+
+// Set vertical graph parameters
+const vGraphY = vLabelY + 10; // start graph below label
+const vGraphHeight = 60; // fixed height for vertical graph
+const vGraphMargin = margin;
+const vGraphWidth = pageWidth - 2 * vGraphMargin;
+
+// Calculate price range counts
+const priceRanges = { Free: 0, Paid: 0, };
+filterEvents.forEach((event) => {
+  const price = parseFloat(event.eventPrice) || 0;
+  if (price === 0) {
+    priceRanges.Free += 1;
+  } else {
+    priceRanges.Paid += 1;
+  }
+});
+const priceKeys = Object.keys(priceRanges);
+const maxPriceCount = Math.max(...Object.values(priceRanges), 1);
+
+// Calculate bar dimensions with spacing
+const vBarSpacing = 10;
+const vBarWidth = (vGraphWidth - (priceKeys.length + 1) * vBarSpacing) / priceKeys.length;
+
+priceKeys.forEach((range, index) => {
+  const count = priceRanges[range];
+  const barHeight = (count / maxPriceCount) * vGraphHeight;
+  const xPos = vGraphMargin + vBarSpacing + index * (vBarWidth + vBarSpacing);
+  const yPos = vGraphY + vGraphHeight - barHeight;
+  doc.setFillColor(100, 149, 237);
+  doc.roundedRect(xPos, yPos, vBarWidth, barHeight, 2, 2, "F");
+  // Label each bar with its range and count
+  doc.setFontSize(8);
+  doc.setTextColor(0);
+  doc.text(range, xPos + vBarWidth / 2, vGraphY + vGraphHeight + 4, { align: "center" });
+  doc.text(`${count}`, xPos + vBarWidth / 2, yPos - 2, { align: "center" });
+});
+
+// ===== Horizontal Bar Graph: Events by Category =====
+
+const hLabelY = vGraphY + vGraphHeight + 20;
+doc.setFontSize(12);
+doc.setFont("helvetica", "bold");
+doc.text(" Events by Category", margin, hLabelY);
+
+const categoryCounts = {};
+filterEvents.forEach((event) => {
+  const category = event.eventCategory || "N/A";
+  categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+});
+const categories = Object.keys(categoryCounts);
+const maxCategoryCount = Math.max(...Object.values(categoryCounts), 1);
+
+const hGraphY = hLabelY + 10;
+const hGraphWidth = pageWidth - 2 * margin;
+const hBarHeight = 8;
+categories.forEach((category, index) => {
+  const count = categoryCounts[category];
+  const barLength = (count / maxCategoryCount) * hGraphWidth;
+  const yPos = hGraphY + index * (hBarHeight + 5);
+  doc.setFillColor(60, 179, 113);
+  doc.roundedRect(margin, yPos, barLength, hBarHeight, 2, 2, "F");
+  doc.setFontSize(10);
+  doc.setTextColor(0);
+  const labelText = `${category} (${count})`;
+  const labelX = margin + barLength + 2;
+  // Check if the label goes outside the right margin
+  const labelWidth = doc.getTextWidth(labelText);
+  const adjustedLabelX =
+    labelX + labelWidth > pageWidth - margin
+      ? pageWidth - margin - labelWidth
+      : labelX;
+  doc.text(labelText, adjustedLabelX, yPos + hBarHeight - 1);
+});
+
+    doc.save("events_report.pdf");
+  };
+  // -------------------------------------------------------------------------------------
+
+  // -------------------- Generate Excel Report (unchanged) --------------------
   const generateExcel = () => {
     const worksheet = XLSX.utils.json_to_sheet(
       filterEvents.map((event) => ({
         Title: event.eventTitle,
+        Organizer: getOrganizerName(event),
         Type: event.eventType,
+        Description: event.eventDescription,
         Date: getFormattedDate(event.eventDate),
+        "Start Time": getFormattedTime(event.eventStartTime),
+        "Registration Deadline": getFormattedDate(event.registrationDeadline),
+        Location: event.location,
+        Category: event.eventCategory,
+        Price: event.eventPrice,
       }))
     );
     const workbook = XLSX.utils.book_new();
@@ -158,16 +327,22 @@ const AdminEventsTable = () => {
         <TableHeader>
           <TableRow>
             <TableHead>Event Title</TableHead>
+            <TableHead>Organizer</TableHead>
             <TableHead>Type</TableHead>
+            <TableHead>Location</TableHead>
+            <TableHead>Category</TableHead>
             <TableHead>Date</TableHead>
             <TableHead className="text-right">Action</TableHead>
           </TableRow>
         </TableHeader>
-        {filterEvents?.map((event) => {
-          return (
+        <TableBody>
+          {filterEvents?.map((event) => (
             <TableRow key={event.eventId}>
               <TableCell>{event?.eventTitle}</TableCell>
+              <TableCell>{getOrganizerName(event)}</TableCell>
               <TableCell>{event?.eventType}</TableCell>
+              <TableCell>{event?.location}</TableCell>
+              <TableCell>{event?.eventCategory}</TableCell>
               <TableCell>{getFormattedDate(event?.eventDate)}</TableCell>
               <TableCell className="text-right cursor-pointer">
                 <Popover>
@@ -176,10 +351,9 @@ const AdminEventsTable = () => {
                   </PopoverTrigger>
                   <PopoverContent className="w-32">
                     <div
-                      onClick={() => {
-
-                        navigate(`/admin/events/${event?.eventId}/attendees`);
-                      }}
+                      onClick={() =>
+                        navigate(`/admin/events/${event?.eventId}/attendees`)
+                      }
                       className="flex items-center w-fit gap-2 cursor-pointer mt-2"
                     >
                       <Eye className="w-4" />
@@ -189,8 +363,8 @@ const AdminEventsTable = () => {
                 </Popover>
               </TableCell>
             </TableRow>
-          );
-        })}
+          ))}
+        </TableBody>
       </Table>
     </div>
   );

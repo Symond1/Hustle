@@ -1,15 +1,15 @@
-import React, { useEffect, useState } from 'react'
-import Navbar from '../shared/Navbar'
-import { Button } from '../ui/button'
-import { ArrowLeft, Loader2 } from 'lucide-react'
-import { Label } from '../ui/label'
-import { Input } from '../ui/input'
-import axios from 'axios'
-import { COMPANY_API_END_POINT } from '@/utils/constant'
-import { useNavigate, useParams } from 'react-router-dom'
-import { toast } from 'sonner'
-import { useDispatch, useSelector } from 'react-redux'
-import useGetCompanyById from '@/hooks/useGetCompanyById'
+import React, { useEffect, useState } from 'react';
+import Navbar from '../shared/Navbar';
+import { Button } from '../ui/button';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Label } from '../ui/label';
+import { Input } from '../ui/input';
+import axios from 'axios';
+import { COMPANY_API_END_POINT } from '@/utils/constant';
+import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import { useDispatch, useSelector } from 'react-redux';
+import useGetCompanyById from '@/hooks/useGetCompanyById';
 
 const CompanySetup = () => {
     const params = useParams();
@@ -23,7 +23,6 @@ const CompanySetup = () => {
         description: singleCompany?.companyDescription || "",
         website: singleCompany?.companyWebsite || "",
         location: singleCompany?.location || "",
-        file: null
     });
 
     const [loading, setLoading] = useState(false);
@@ -31,22 +30,26 @@ const CompanySetup = () => {
 
     const changeEventHandler = (e) => {
         setInput({ ...input, [e.target.name]: e.target.value });
-    }
+    };
 
     const changeFileHandler = (e) => {
         const file = e.target.files?.[0];
         setInput({ ...input, file });
-    }
+    };
 
     const submitHandler = async (e) => {
         e.preventDefault();
         const formData = new FormData();
-        formData.append("name", input.name);
-        formData.append("description", input.description);
-        formData.append("website", input.website);
+        // Updated field names to match backend expectations
+        formData.append("companyName", input.name);
+        formData.append("companyDescription", input.description);
+        formData.append("companyWebsite", input.website);
         formData.append("location", input.location);
-        if (input.file) {
-            formData.append("file", input.file);
+        
+
+        // Debug: Log formData entries
+        for (let pair of formData.entries()) {
+            console.log(`${pair[0]}: ${pair[1]}`);
         }
 
         try {
@@ -59,13 +62,17 @@ const CompanySetup = () => {
 
             console.log("Token:", token);  // Debugging log
 
-            const res = await axios.put(`${COMPANY_API_END_POINT}/update/${params.id}`, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                    'Authorization': `Bearer ${token}`  // Include token in request headers
-                },
-                withCredentials: true // Ensure credentials are sent with the request (cookies)
-            });
+            const res = await axios.put(
+                `${COMPANY_API_END_POINT}/update/${params.id}`,
+                formData,
+                {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                        'Authorization': `Bearer ${token}`  // Include token in request headers
+                    },
+                    withCredentials: true // Ensure credentials are sent with the request (cookies)
+                }
+            );
 
             console.log("Response from backend:", res.data);  // Log the response to check the structure
 
@@ -87,10 +94,10 @@ const CompanySetup = () => {
     useEffect(() => {
         setInput({
             name: singleCompany?.companyName || "",
-            description: singleCompany?.companyDescription  || "",
+            description: singleCompany?.companyDescription || "",
             website: singleCompany?.companyWebsite || "",
             location: singleCompany?.location || "",
-            file: singleCompany?.file || null
+            file: null // Reset file when company data changes
         });
     }, [singleCompany]);
 
@@ -104,7 +111,7 @@ const CompanySetup = () => {
                             <ArrowLeft />
                             <span>Back</span>
                         </Button>
-                        <h1 className='font-bold text-xl'>Company Setup</h1>
+                        <h1 className='font-bold text-xl'>Company Update</h1>
                     </div>
                     <div className='grid grid-cols-2 gap-4'>
                         <div>
@@ -143,17 +150,17 @@ const CompanySetup = () => {
                                 onChange={changeEventHandler}
                             />
                         </div>
-                        <div>
-                            <Label>Logo</Label>
-                            <Input
-                                type="file"
-                                accept="image/*"
-                                onChange={changeFileHandler}
-                            />
-                        </div>
+                        
                     </div>
                     {
-                        loading ? <Button className="w-full my-4"> <Loader2 className='mr-2 h-4 w-4 animate-spin' /> Please wait </Button> : <Button type="submit" className="w-full my-4">Update</Button>
+                        loading ? (
+                            <Button className="w-full my-4">
+                                <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                                Please wait
+                            </Button>
+                        ) : (
+                            <Button type="submit" className="w-full my-4">Update</Button>
+                        )
                     }
                 </form>
             </div>

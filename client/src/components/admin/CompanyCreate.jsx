@@ -28,11 +28,15 @@ const CompanyCreate = () => {
     const [location, setLocation] = useState('');
     const [contactEmail, setContactEmail] = useState('');
     const [contactPhone, setContactPhone] = useState('');
+    const [loading, setLoading] = useState(false);
 
     const registerNewCompany = async () => {
+        // Prevent duplicate calls if already loading
+        if (loading) return;
         try {
+            setLoading(true);
             const res = await axios.post(
-                `${COMPANY_API_END_POINT}/register`, // Correct template literal here
+                `${COMPANY_API_END_POINT}/register`,
                 {
                     companyName,
                     companyLogo,
@@ -47,9 +51,9 @@ const CompanyCreate = () => {
                 {
                     headers: {
                         'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`, // Correct Authorization format
+                        Authorization: `Bearer ${token}`,
                     },
-                    withCredentials: true, // Ensure cookies are sent with the request
+                    withCredentials: true,
                 }
             );
 
@@ -58,14 +62,16 @@ const CompanyCreate = () => {
                 dispatch(setSingleCompany(res.data.company));
                 dispatch(setUser(res.data.user)); // Update the user in Redux
                 dispatch(setToken(res.data.token)); // Update the token in Redux
-                toast.success(res.data.message);
 
-                const companyId = res?.data?.company?._id;
-                navigate(`/admin/companies/${companyId}`); // Corrected URL template literal
+                // Show congratulations message and redirect to the companies table page
+                toast.success("Congratulations! Your company has been created successfully.");
+                navigate(`/admin/companies`);
             }
         } catch (error) {
             console.error(error);
             toast.error(error.response?.data?.message || 'Something went wrong');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -76,7 +82,7 @@ const CompanyCreate = () => {
                 <div className="my-10">
                     <h1 className="font-bold text-2xl">Your Company Details</h1>
                     <p className="text-gray-500">
-                        Feed your company Details. You are also allowed to change the details after the creation of your company.
+                        Feed your company details. You are also allowed to change the details after the creation of your company.
                     </p>
                 </div>
 
@@ -164,7 +170,9 @@ const CompanyCreate = () => {
                     <Button variant="outline" onClick={() => navigate("/admin/companies")}>
                         Cancel
                     </Button>
-                    <Button onClick={registerNewCompany}>Continue</Button>
+                    <Button onClick={registerNewCompany} disabled={loading}>
+                        {loading ? "Please wait..." : "Continue"}
+                    </Button>
                 </div>
             </div>
         </div>

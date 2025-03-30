@@ -62,7 +62,7 @@ const HeroSection = () => {
                     Unlock the Power of Your Hustle.
                 </span>
                 <h1 className="text-5xl font-extrabold text-gray-900 leading-tight animate__animated animate__fadeInUp">
-                    Where Ambition Meets Opportunity – <br />
+                    Where Ambition Meets Opportunity  <br />
                     Let the Hustle Begin!
                 </h1>
                 <div className="flex flex-col items-center gap-4 animate__animated animate__fadeIn">

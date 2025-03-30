@@ -5,15 +5,17 @@ import axios from "axios";
 import { setAllEvents } from "../redux/eventSlice";
 import { motion } from "framer-motion";
 import { Badge } from "./ui/badge";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { toast } from "sonner";
+import { Clock, MapPin, Tag, Calendar, AlertCircle, Users, Wallet } from "lucide-react";
 
 const Events = () => {
   const { allEvents, searchedQuery } = useSelector((store) => store.event);
   const [filteredEvents, setFilteredEvents] = useState(allEvents || []);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [sortOption, setSortOption] = useState("Sort by Date");
   const dispatch = useDispatch();
-  const { user } = useSelector((store) => store.auth); // Access user from auth state
+  const { user } = useSelector((store) => store.auth);
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -32,6 +34,7 @@ const Events = () => {
     fetchEvents();
   }, [dispatch]);
 
+  // Filter events based on searched query
   useEffect(() => {
     if (searchedQuery) {
       const query = searchedQuery.toLowerCase();
@@ -47,6 +50,23 @@ const Events = () => {
       setFilteredEvents(allEvents || []);
     }
   }, [allEvents, searchedQuery]);
+
+  // Dropdown sort functionality
+  const sortEvents = (option) => {
+    let sortedEvents = [...(filteredEvents || [])];
+    if (option === "Sort by Date") {
+      sortedEvents.sort((a, b) => new Date(a.eventDate) - new Date(b.eventDate));
+    } else if (option === "Sort by Price") {
+      sortedEvents.sort((a, b) => (a.eventPrice || 0) - (b.eventPrice || 0));
+    } else if (option === "Sort by Category") {
+      sortedEvents.sort((a, b) =>
+        (a.eventCategory || "").localeCompare(b.eventCategory || "")
+      );
+    }
+    setFilteredEvents(sortedEvents);
+    setSortOption(option);
+    setDropdownOpen(false);
+  };
 
   const formatDate = (date) => {
     const eventDate = new Date(date);
@@ -104,128 +124,187 @@ const Events = () => {
     }
   };
   
-
   return (
-    <div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-200">
       <Navbar />
-      <div className="max-w-7xl mx-auto mt-5">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredEvents.length <= 0 ? (
-            <span>No events found</span>
-          ) : (
-            filteredEvents.map((event) => (
-              <motion.div
-                initial={{ opacity: 0, y: 50 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -50 }}
-                transition={{ duration: 0.3 }}
-                key={event._id}
-                className="p-6 rounded-lg shadow-lg bg-gray-100 text-black w-full max-w-sm cursor-pointer"
-                onClick={() => handleEventClick(event)}
+      <div className="max-w-6xl mx-auto mt-10 px-4 sm:px-6 lg:px-8">
+        {/* Dropdown for sorting */}
+        <div className="flex justify-end mb-6 relative">
+          <button
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            className="flex items-center gap-1 bg-white border border-gray-300 rounded-full px-4 py-2 shadow-sm hover:shadow-md transition-all duration-200"
+          >
+            <span className="text-sm font-medium text-gray-800">{sortOption}</span>
+            <span className="text-lg">&#9662;</span>
+          </button>
+          {dropdownOpen && (
+            <div className="absolute top-12 right-0 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-10">
+              <button
+                onClick={() => sortEvents("Sort by Date")}
+                className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2"
               >
-                <div className="flex flex-col gap-4">
-                  <div className="flex justify-between items-center">
-                    <h1 className="font-semibold text-2xl text-black hover:text-gray-600 transition-colors duration-300">
-                      {event?.eventTitle}
-                    </h1>
-                    <Badge
-                      className={`text-white px-3 py-1 rounded-full text-xs ${
-                        event?.eventPrice > 0 ? "bg-red-600" : "bg-green-600"
-                      }`}
-                    >
-                      {event?.eventPrice > 0 ? "Paid" : "Free"}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-gray-700">
-                    Organizer: {event?.Organizer || "Not available"}
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    Category: {event?.eventCategory || "Not available"}
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    Date:{" "}
-                    {event?.eventDate
-                      ? formatDate(event.eventDate)
-                      : "Date not available"}
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    Location: {event?.location || "Location not available"}
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    Type: {event?.eventType || "Type not available"}
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    Price: {event?.eventPrice || "Free"}
-                  </p>
-                </div>
-              </motion.div>
-            ))
+                <Calendar className="h-4 w-4" />
+                <span className="text-sm text-gray-700">Sort by Date</span>
+              </button>
+              <button
+                onClick={() => sortEvents("Sort by Price")}
+                className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2"
+              >
+                <Wallet className="h-4 w-4" />
+                <span className="text-sm text-gray-700">Sort by Price</span>
+              </button>
+              <button
+                onClick={() => sortEvents("Sort by Category")}
+                className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2"
+              >
+                <Tag className="h-4 w-4" />
+                <span className="text-sm text-gray-700">Sort by Category</span>
+              </button>
+            </div>
           )}
         </div>
 
+        <div className="relative">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredEvents.length <= 0 ? (
+              <div className="col-span-full text-center py-12">
+                <p className="text-xl font-semibold text-gray-700 flex items-center justify-center gap-2">
+                  <AlertCircle className="h-6 w-6 text-rose-600" />
+                  No events found matching your search
+                </p>
+              </div>
+            ) : (
+              filteredEvents.map((event) => (
+                <motion.div
+                  key={event._id}
+                  initial={{ opacity: 0, y: 50 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="p-6 bg-white rounded-2xl shadow-md border border-gray-100 hover:shadow-xl transition-shadow duration-300 h-[280px] flex flex-col cursor-pointer group"
+                  onClick={() => handleEventClick(event)}
+                >
+                  <div className="space-y-4 flex-grow">
+                    <div className="flex items-center justify-between">
+                      <h1 className="text-xl font-bold text-gray-900 line-clamp-2">
+                        {event?.eventTitle}
+                      </h1>
+                      <Badge
+                        className={`px-3 py-1 rounded-full ${
+                          event?.eventPrice > 0 ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"
+                        }`}
+                      >
+                        {event?.eventPrice > 0 ? `$${event.eventPrice}` : "Free"}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline" className="flex items-center gap-1.5 bg-blue-50 text-blue-700">
+                        <Calendar className="h-4 w-4" />
+                        <span>
+                          {event?.eventDate
+                            ? formatDate(event.eventDate).split(",")[0]
+                            : "N/A"}
+                        </span>
+                      </Badge>
+                      <Badge variant="outline" className="flex items-center gap-1.5 bg-purple-50 text-purple-700">
+                        <MapPin className="h-4 w-4" />
+                        <span className="line-clamp-1">
+                          {event?.location || "Not available"}
+                        </span>
+                      </Badge>
+                      <Badge variant="outline" className="flex items-center gap-1.5 bg-amber-50 text-amber-700">
+                        <Tag className="h-4 w-4" />
+                        <span className="line-clamp-1">
+                          {event?.eventCategory || "General"}
+                        </span>
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-gray-600 line-clamp-3 group-hover:text-gray-800 transition-colors">
+                      {event.eventDescription}
+                    </p>
+                  </div>
+                  <div className="mt-auto pt-4 border-t border-dashed border-gray-200">
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <Users className="h-4 w-4" />
+                      <span className="line-clamp-1">
+                        {event?.Organizer || "Organizer not available"}
+                      </span>
+                    </div>
+                  </div>
+                </motion.div>
+              ))
+            )}
+          </div>
+        </div>
+
         {selectedEvent && (
-          <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
-            <div className="bg-white p-6 rounded-lg w-11/12 max-w-4xl relative">
+          <div className="fixed inset-0 bg-gray-900 bg-opacity-70 flex justify-center items-center z-50">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white p-6 rounded-2xl w-full max-w-4xl shadow-2xl border border-gray-100 relative"
+            >
               <button
-                className="absolute top-4 right-4 text-gray-500 text-xl"
+                className="absolute top-4 right-4 text-gray-700 hover:text-black transition-colors text-2xl"
                 onClick={closeModal}
               >
                 &times;
               </button>
-              <h2 className="text-3xl font-bold text-black mb-4">
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">
                 {selectedEvent.eventTitle}
               </h2>
               <p className="text-lg text-gray-700 mb-4">
                 {selectedEvent.eventDescription}
               </p>
-              <p className="text-sm text-gray-600">
-                Event Type: {selectedEvent.eventType}
-              </p>
-              <p className="text-sm text-gray-600">
-                Location: {selectedEvent.location}
-              </p>
-              <p className="text-sm text-gray-600">
-                Date: {formatDate(selectedEvent.eventDate)}
-              </p>
-              <p className="text-sm text-gray-600">
-                Registration Deadline:{" "}
-                {formatDate(selectedEvent.registrationDeadline)}
-              </p>
-              <p className="text-sm text-gray-600">
-                Price: {selectedEvent.eventPrice}
-              </p>
-              <p className="text-sm text-gray-600">
-                Organizer: {selectedEvent.Organizer || "Not available"}
-              </p>
-              <p className="text-sm text-gray-600">
-                Category: {selectedEvent.eventCategory || "Not available"}
-              </p>
-
-              <div className="flex justify-between mt-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                <p>
+                  <strong>Event Type:</strong>{" "}
+                  {selectedEvent.eventType || "Not available"}
+                </p>
+                <p>
+                  <strong>Organizer:</strong>{" "}
+                  {selectedEvent.Organizer || "Not available"}
+                </p>
+                <p>
+                  <strong>Date:</strong>{" "}
+                  {selectedEvent.eventDate ? formatDate(selectedEvent.eventDate) : "Not available"}
+                </p>
+                <p>
+                  <strong>Registration Deadline:</strong>{" "}
+                  {selectedEvent.registrationDeadline ? formatDate(selectedEvent.registrationDeadline) : "Not available"}
+                </p>
+                <p>
+                  <strong>Location:</strong>{" "}
+                  {selectedEvent.location || "Not available"}
+                </p>
+                <p>
+                  <strong>Category:</strong>{" "}
+                  {selectedEvent.eventCategory || "Not available"}
+                </p>
+                <p>
+                  <strong>Price:</strong>{" "}
+                  {selectedEvent.eventPrice > 0 ? `$${selectedEvent.eventPrice}` : "Free"}
+                </p>
+              </div>
+              <div className="flex justify-between mt-6 gap-3">
                 <button
-                  className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                  className="w-full py-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
                   onClick={closeModal}
                 >
                   Back
                 </button>
                 <button
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                  className="w-full py-2 bg-black text-white rounded-full hover:bg-gray-800 transition-colors"
                   onClick={() =>
-                    registerForEvent(
-                      selectedEvent._id,
-                      selectedEvent.thirdPartyLink
-                    )
+                    registerForEvent(selectedEvent.thirdPartyLink)
                   }
                 >
                   Register
                 </button>
               </div>
-            </div>
+            </motion.div>
           </div>
         )}
       </div>
-
-      <ToastContainer />
     </div>
   );
 };
