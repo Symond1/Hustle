@@ -377,3 +377,74 @@ export const enableJob = async (req, res) => {
       return res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
+
+// Updating a job 
+
+export const updateJob = async (req, res) => {
+  try {
+    const { id } = req.params; // Get job ID from route parameters
+    const updateData = req.body; // Data to update
+
+    // Define allowed fields for update (all fields used during postJob)
+    const allowedFields = [
+      "title",
+      "jobType",
+      "location",
+      "description",
+      "responsibilities",
+      "qualifications",
+      "salary",
+      "jobNiche",
+      "industry",
+      "position",
+    ];
+
+    // Filter updateData to only include allowed fields with non-undefined values
+    const filteredData = Object.keys(updateData).reduce((acc, key) => {
+      if (allowedFields.includes(key) && updateData[key] !== undefined) {
+        acc[key] = updateData[key];
+      }
+      return acc;
+    }, {});
+
+    // Ensure there is at least one field to update
+    if (Object.keys(filteredData).length === 0) {
+      return res.status(400).json({
+        message: "No valid data provided to update.",
+      });
+    }
+
+    // Build query:
+    // - For recruiters, allow update only if they originally posted the job.
+    // - Admins can update any job.
+    let query = { _id: id };
+    if (req.user.role.toLowerCase() === "recruiter") {
+      query.postedBy = req.user._id;
+    }
+
+    // Update the job using findOneAndUpdate with the filtered update data
+    const updatedJob = await Job.findOneAndUpdate(
+      query,
+      { $set: filteredData },
+      { new: true, runValidators: true }
+    );
+
+    // If no job is found, either the ID is wrong or the recruiter is not authorized
+    if (!updatedJob) {
+      return res.status(404).json({
+        message: "Job not found or access denied.",
+      });
+    }
+
+    return res.status(200).json({
+      message: "Job updated successfully.",
+      job: updatedJob,
+    });
+  } catch (error) {
+    console.error("Error updating job:", error);
+    return res.status(500).json({
+      message: "Error updating job.",
+      error: error.message,
+    });
+  }
+};
