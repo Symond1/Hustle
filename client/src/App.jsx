@@ -15,7 +15,7 @@ import CompanySetup from './components/admin/CompanySetup';
 import AdminJobs from './components/admin/AdminJobs';
 import AdminEvents from './components/admin/AdminEvents';
 import PostJob from './components/admin/PostJob';
-import PostEvent from './components/admin/PostEvent'; // This was missing
+import PostEvent from './components/admin/PostEvent';
 import Applicants from './components/admin/Applicants';
 import InteractiveSection from './components/pages/InteractiveSection';
 import ResetPassword from './components/auth/ResetPassword';
@@ -25,7 +25,7 @@ import EventDescription from './components/EventDescription';
 import AdminJobDetails from './components/admin/AdminJobDetails';
 import AdminEventAttendees from './components/admin/AdminEventAttendees';
 import UpdateProfileDialog from './components/UpdateProfileDialog';
-
+import JobSetup from './components/admin/JobSetup';
 
 const appRouter = createBrowserRouter([
   { path: '/', element: <Home /> },
@@ -41,14 +41,14 @@ const appRouter = createBrowserRouter([
   { path: '/company', element: <Company /> },
   { path: '/interactive', element: <InteractiveSection /> },
   { path: '/about', element: <About /> },
-  { path: '/UpdateProfileDialog', element: <UpdateProfileDialog /> }, // Fixed route syntax
+  { path: '/UpdateProfileDialog', element: <UpdateProfileDialog /> },
   
-
   { path: '/admin/companies', element: <Companies /> },
   { path: '/admin/companies/create', element: <CompanyCreate /> },
   { path: '/admin/companies/:id', element: <CompanySetup /> },
   { path: '/admin/jobs', element: <AdminJobs /> },
   { path: '/admin/jobs/create', element: <PostJob /> },
+  { path: '/admin/jobs/:id/setup', element: <JobSetup /> },
   { path: '/admin/events/:eventId/attendees', element: <AdminEventAttendees /> },
   { path: '/admin/jobs/:jobId/applicants', element: <Applicants /> },
   { path: '/admin/jobs/:jobId/details', element: <AdminJobDetails /> },

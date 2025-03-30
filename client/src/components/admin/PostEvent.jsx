@@ -42,9 +42,33 @@ const PostEvent = () => {
     const submitHandler = async (e) => {
         e.preventDefault();
 
+        // Basic required fields check
         if (!input.eventTitle || !input.eventDate) {
             toast.error("Event title and date are required.");
             return;
+        }
+
+        // Validate event start time is on the same day as event date
+        if (input.eventStartTime) {
+            const eventDateOnly = input.eventDate; // YYYY-MM-DD from the date input
+            const eventStartDateOnly = new Date(input.eventStartTime)
+                .toISOString()
+                .split('T')[0]; // extract date part from datetime-local
+
+            if (eventStartDateOnly !== eventDateOnly) {
+                toast.error("Event start time must be on the same day as the event date.");
+                return;
+            }
+        }
+
+        // Validate that registration deadline does not exceed event start time
+        if (input.registrationDeadline && input.eventStartTime) {
+            const regDeadline = new Date(input.registrationDeadline);
+            const eventStart = new Date(input.eventStartTime);
+            if (regDeadline > eventStart) {
+                toast.error("Registration deadline should not exceed the event start time.");
+                return;
+            }
         }
 
         try {
@@ -206,11 +230,10 @@ const PostEvent = () => {
                         </div>
                     </div>
                     <div className="flex justify-center mt-10">
-                    <Button 
-    type="submit" 
-    className="w-full md:w-1/3 py-3 bg-black hover:bg-gray-800 text-white font-bold rounded-full shadow-lg transition transform hover:scale-105"
->
-
+                        <Button 
+                            type="submit" 
+                            className="w-full md:w-1/3 py-3 bg-black hover:bg-gray-800 text-white font-bold rounded-full shadow-lg transition transform hover:scale-105"
+                        >
                             {loading ? <Loader2 className="animate-spin" /> : 'Post Event'}
                         </Button>
                     </div>

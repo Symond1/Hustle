@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "../ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
-import { Edit2, Eye, MoreHorizontal, Download } from "lucide-react";
+import { Edit2, Eye, MoreHorizontal, Download, Users } from "lucide-react";
 import { Button } from "../ui/button";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -28,7 +28,6 @@ const AdminJobsTable = () => {
   const navigate = useNavigate();
 
   // Utility to convert a date string to a local "yyyy-mm-dd" format
-  // This avoids potential timezone shifts from using toISOString.
   const getFormattedDate = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
@@ -54,7 +53,7 @@ const AdminJobsTable = () => {
     }
     if (startDate || endDate) {
       filtered = filtered.filter((job) => {
-        const jobDateString = getFormattedDate(job.createdAt); // in 'yyyy-mm-dd' format based on local time
+        const jobDateString = getFormattedDate(job.createdAt);
         return (
           (!startDate || jobDateString >= startDate) &&
           (!endDate || jobDateString <= endDate)
@@ -64,20 +63,32 @@ const AdminJobsTable = () => {
     setFilterJobs(filtered);
   }, [allJobs, searchText, searchType, startDate, endDate, user]);
 
-  // PDF and Excel helper functions remain unchanged
-
+  // 1) Updated addHeader function with taller header and repositioned text
   const addHeader = (doc, pageWidth) => {
+    // Make the header rectangle taller (height = 60) for better spacing
     doc.setFillColor(0, 123, 255);
-    doc.rect(0, 0, pageWidth, 30, "F");
+    doc.rect(0, 0, pageWidth, 60, "F");
+
+    // Add company logo from public folder (client/public/logos/Logo.jpg)
+    // Adjust x, y, width, and height as needed
+    doc.addImage("/logos/Logo.jpg", "JPEG", 10, 15, 30, 30);
+
+    // Add company name "BrainerHub Solutions"
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
     doc.setTextColor(255, 255, 255);
-    doc.text("Job Report", 14, 20);
+    doc.text("BrainerHub Solutions", 50, 25);
+
+    // Add report title "Job Report"
+    doc.setFontSize(14);
+    doc.text("Job Report", 50, 40);
+
+    // Add generation info and role on the right side
     doc.setFontSize(10);
     const currentDate = new Date().toLocaleString();
-    doc.text(`Generated on: ${currentDate}`, 14, 27);
+    doc.text(`Generated on: ${currentDate}`, pageWidth - 90, 25);
     const reportFor = user?.role === "Admin" ? "Admin" : "Recruiter";
-    doc.text(`Report for ${reportFor} by HUSTLE`, pageWidth - 80, 27);
+    doc.text(`Report for ${reportFor} by HUSTLE`, pageWidth - 90, 40);
   };
 
   const addFooter = (doc, pageWidth, pageHeight, currentPage, totalPages, userEmail) => {
@@ -108,7 +119,10 @@ const AdminJobsTable = () => {
       `Qualifications: ${job.qualifications || "N/A"}`,
       maxWidth
     ).length;
-    const linesJobNiche = doc.splitTextToSize(`Job Niche: ${job.jobNiche || "N/A"}`, maxWidth).length;
+    const linesJobNiche = doc.splitTextToSize(
+      `Job Niche: ${job.jobNiche || "N/A"}`,
+      maxWidth
+    ).length;
     return (
       10 + // Title
       8 + // Type and Company
@@ -151,54 +165,16 @@ const AdminJobsTable = () => {
     return y;
   };
 
-  const drawJobTitleBarChart = (doc, startY, pageWidth, blockWidth, blockHeight) => {
-    const x = 14;
-    const headerGap = 8;
-    doc.setFontSize(10);
-    doc.setTextColor(0);
-    doc.text("Job Title Bar Chart (Vertical)", x, startY - headerGap);
-    doc.setDrawColor(0);
-    doc.rect(x, startY, blockWidth, blockHeight);
-
-    const jobTitleCounts = {};
-    filterJobs.forEach((job) => {
-      const title = job.title || "N/A";
-      jobTitleCounts[title] = (jobTitleCounts[title] || 0) + 1;
-    });
-    const titles = Object.keys(jobTitleCounts);
-    const counts = Object.values(jobTitleCounts);
-    const maxCount = Math.max(...counts, 1);
-
-    const spacing = 20;
-    const numBars = titles.length;
-    const availableWidth = blockWidth - (numBars + 1) * spacing;
-    const barWidth = availableWidth / numBars;
-    const maxBarHeight = blockHeight - 30;
-
-    let xPos = x + spacing;
-    titles.forEach((title) => {
-      const count = jobTitleCounts[title];
-      const barHeight = (count / maxCount) * maxBarHeight;
-      doc.setFillColor(100, 149, 237);
-      doc.rect(xPos, startY + blockHeight - barHeight, barWidth, barHeight, "F");
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.setTextColor(0);
-      doc.text(`${count}`, xPos + barWidth / 2, startY + blockHeight - barHeight - 4, { align: "center" });
-
-      const labelGap = 6;
-      const titleLines = doc.splitTextToSize(title, barWidth + 40);
-      let labelY = startY + blockHeight + labelGap;
-      titleLines.forEach((line) => {
-        doc.text(line, xPos + barWidth / 2, labelY, { align: "center" });
-        labelY += 6;
-      });
-
-      xPos += barWidth + spacing;
-    });
-
-    return startY + blockHeight + 25;
+  // Helper function to truncate text to fit within a given width
+  const truncateText = (doc, text, maxWidth) => {
+    let truncated = text;
+    while (doc.getTextWidth(truncated) > maxWidth && truncated.length > 0) {
+      truncated = truncated.slice(0, -1);
+    }
+    if (truncated.length < text.length) {
+      truncated = truncated.trim() + "...";
+    }
+    return truncated;
   };
 
   const drawSalaryRangeHistogram = (doc, startY, pageWidth, blockWidth, blockHeight) => {
@@ -208,7 +184,6 @@ const AdminJobsTable = () => {
     doc.text("Salary Range Histogram", x, startY - 5);
     doc.setDrawColor(0);
     doc.rect(x, startY, blockWidth, blockHeight);
-
     const ranges = [
       { min: 0, max: 50000, label: "0-50K" },
       { min: 50000, max: 100000, label: "50K-100K" },
@@ -221,7 +196,6 @@ const AdminJobsTable = () => {
       }).length;
     });
     const maxCount = Math.max(...rangeCounts, 1);
-
     let yPos = startY + 10;
     const barMaxWidth = blockWidth - 60;
     ranges.forEach((range, i) => {
@@ -246,7 +220,6 @@ const AdminJobsTable = () => {
     doc.text("Job Type Frequency Bars", x, startY - 5);
     doc.setDrawColor(0);
     doc.rect(x, startY, blockWidth, blockHeight);
-
     const jobTypeCounts = {};
     filterJobs.forEach((job) => {
       const type = job.jobType || "N/A";
@@ -255,7 +228,6 @@ const AdminJobsTable = () => {
     const types = Object.keys(jobTypeCounts);
     const counts = Object.values(jobTypeCounts);
     const maxCount = Math.max(...counts, 1);
-
     let yPos = startY + 10;
     const barMaxWidth = blockWidth - 60;
     types.forEach((type) => {
@@ -275,46 +247,46 @@ const AdminJobsTable = () => {
     return startY + blockHeight + 15;
   };
 
+  // 2) generatePDF with updated yOffset to begin below the taller header
   const generatePDF = () => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const maxWidth = pageWidth - 28;
-
     const jobHeights = filterJobs.map((job) => estimateJobHeight(doc, job, maxWidth));
 
-    let yOffset = 40;
+    // Start lower to avoid overlapping the new taller header
+    let yOffset = 70; 
     let currentPage = 1;
-
     addHeader(doc, pageWidth);
 
     filterJobs.forEach((job, index) => {
+      // If adding this job would exceed the page height, create a new page
       if (yOffset + jobHeights[index] > pageHeight - 30) {
         doc.addPage();
         currentPage++;
         addHeader(doc, pageWidth);
-        yOffset = 40;
+        yOffset = 70; // Reset offset for the new page
       }
       yOffset = drawJobDetails(doc, job, 14, yOffset, pageWidth);
     });
 
+    // Add a page for charts
     doc.addPage();
     currentPage++;
     addHeader(doc, pageWidth);
-    yOffset = 40;
+    yOffset = 70;
     const blockWidth = pageWidth - 28;
     const blockHeight = 60;
-
-    yOffset = drawJobTitleBarChart(doc, yOffset, pageWidth, blockWidth, blockHeight);
     yOffset = drawSalaryRangeHistogram(doc, yOffset, pageWidth, blockWidth, blockHeight);
     yOffset = drawJobTypeFrequencyBars(doc, yOffset, pageWidth, blockWidth, blockHeight);
 
+    // Add footers to each page
     const totalPages = currentPage;
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
       addFooter(doc, pageWidth, pageHeight, i, totalPages, user.email);
     }
-
     doc.save("Job_Report.pdf");
   };
 
@@ -430,10 +402,17 @@ const AdminJobsTable = () => {
                       <span>Details</span>
                     </div>
                     <div
-                      onClick={() => navigate(`/admin/jobs/${job._id}/applicants`)}
+                      onClick={() => navigate(`/admin/jobs/${job._id}/setup`)}
                       className="flex items-center gap-2 cursor-pointer mt-2"
                     >
                       <Edit2 className="w-4" />
+                      <span>Edit</span>
+                    </div>
+                    <div
+                      onClick={() => navigate(`/admin/jobs/${job._id}/applicants`)}
+                      className="flex items-center gap-2 cursor-pointer mt-2"
+                    >
+                      <Users className="w-4" />
                       <span>Applicants</span>
                     </div>
                   </PopoverContent>

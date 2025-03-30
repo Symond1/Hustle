@@ -31,38 +31,28 @@ const CompaniesTable = () => {
   useEffect(() => {
     if (!user || !companies) return;
 
-    // Debug logs to check values of user and companies
-    console.log("User:", user);
-    console.log("All companies:", companies);
-
     // Start with all companies
     let filtered = companies;
 
     // Filter by createdBy if available
     if (user._id) {
-      filtered = filtered.filter((company) => {
-        // If createdBy is missing, consider including or excluding based on your needs.
-        return company?.createdBy === user._id;
-      });
-      console.log("After createdBy filter:", filtered);
+      filtered = filtered.filter((company) => company?.createdBy === user._id);
     }
 
     // Filter by company name (starts with searchText)
     if (searchText) {
       filtered = filtered.filter((company) =>
-        company.companyName
-          .toLowerCase()
-          .startsWith(searchText.toLowerCase())
+        company.companyName.toLowerCase().startsWith(searchText.toLowerCase())
       );
-      console.log("After searchText filter:", filtered);
     }
 
     // Filter by website substring
     if (searchWebsite) {
       filtered = filtered.filter((company) =>
-        company.companyWebsite?.toLowerCase().includes(searchWebsite.toLowerCase())
+        company.companyWebsite
+          ?.toLowerCase()
+          .includes(searchWebsite.toLowerCase())
       );
-      console.log("After searchWebsite filter:", filtered);
     }
 
     // Filter by date range if provided
@@ -73,7 +63,6 @@ const CompaniesTable = () => {
         const end = endDate ? new Date(endDate) : null;
         return (!start || companyDate >= start) && (!end || companyDate <= end);
       });
-      console.log("After date filter:", filtered);
     }
 
     setFilteredCompanies(filtered);
@@ -82,17 +71,46 @@ const CompaniesTable = () => {
   const generatePDF = () => {
     const doc = new jsPDF();
     const currentDate = new Date().toLocaleString();
-    let pageNumber = 1;
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-
-    // Report header
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(16);
-    doc.text("Company Report By Hustle", 14, 15);
-    doc.setFontSize(10);
-    doc.text(`Generated on: ${currentDate}`, 14, 25);
-
+    const margin = 14;
+  
+    // Header function: draws a blue header with logo and report info.
+    const renderHeader = (doc, pageWidth, margin) => {
+      doc.setFillColor(0, 123, 255);
+      doc.rect(0, 0, pageWidth, 60, "F");
+      // Company Logo
+      doc.addImage("/logos/Logo.jpg", "JPEG", 10, 15, 30, 30);
+      // Company Name and Report Title
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(18);
+      doc.setTextColor(255, 255, 255);
+      doc.text("BrainerHub Solutions", 50, 25);
+      doc.setFontSize(14);
+      doc.text("Company Report by Hustle", 50, 35);
+      // Right-aligned generated info and user role
+      doc.setFontSize(10);
+      doc.text(`Generated on: ${currentDate}`, pageWidth - margin, 25, { align: "right" });
+      if (user?.role) {
+        doc.text(`Role: ${user.role}`, pageWidth - margin, 35, { align: "right" });
+      }
+    };
+  
+    // Footer function: displays downloader details and page number.
+    const renderFooter = (doc, pageWidth, pageHeight, margin, currentPage) => {
+      const footerY = pageHeight - 10;
+      doc.setFontSize(8);
+      doc.setTextColor(100);
+      const downloadName = user?.name || "";
+      const downloadEmail = user?.email || "";
+      doc.text(`Downloaded by: ${downloadName} (${downloadEmail})`, margin, footerY);
+      doc.text(`Page ${currentPage}`, pageWidth - margin - 20, footerY);
+    };
+  
+    // Draw header on the first page
+    renderHeader(doc, pageWidth, margin);
+  
+    // Define table headers and map filtered companies into table data rows.
     const headers = [[
       "Name",
       "Contact Phone",
@@ -100,8 +118,7 @@ const CompaniesTable = () => {
       "Location",
       "Size",
       "Industry",
-      "Website",
-      "Logo"
+      "Website"
     ]];
     const data = filteredCompanies.map((company) => [
       company.companyName,
@@ -112,27 +129,24 @@ const CompaniesTable = () => {
       company.companyIndustry || "N/A",
       company.companyWebsite || "N/A",
     ]);
-
+  
+    // Use autoTable to render the table with the header starting at Y = 70.
     doc.autoTable({
       head: headers,
       body: data,
-      startY: 30,
+      startY: 70,
       headStyles: { fillColor: [0, 0, 0] },
       didDrawPage: function () {
-        // Add watermark centered in lighter gray
-        doc.setTextColor(200, 200, 200);
-        doc.setFontSize(40);
-        doc.text("HUSTLE", pageWidth / 2, pageHeight / 2, { align: "center" });
-        // Reset text color and add page number
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(10);
-        doc.text(`Page ${pageNumber}`, pageWidth - 20, pageHeight - 10);
-        pageNumber++;
+        const currentPage = doc.internal.getNumberOfPages();
+        // Re-render header and footer on each new page.
+        renderHeader(doc, pageWidth, margin);
+        renderFooter(doc, pageWidth, pageHeight, margin, currentPage);
       },
     });
-
+  
     doc.save("Company_Report.pdf");
   };
+  
 
   const exportToExcel = () => {
     const worksheet = XLSX.utils.json_to_sheet(

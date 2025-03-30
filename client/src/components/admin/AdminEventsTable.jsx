@@ -75,35 +75,43 @@ const AdminEventsTable = () => {
     return timeString || "";
   };
 
+  // Updated renderHeader with non-overlapping layout
+const renderHeader = (doc, pageWidth, margin) => {
+  // Make the header rectangle taller (height = 60)
+  doc.setFillColor(0, 123, 255);
+  doc.rect(0, 0, pageWidth, 60, "F");
 
-  // Render the header on each page
-  const renderHeader = (doc, pageWidth, margin) => {
-    doc.setFillColor(0, 123, 255);
-    doc.rect(0, 0, pageWidth, 30, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.setTextColor(255, 255, 255);
-    doc.text("Report of Events from Hustle", margin, 20);
-    doc.setFontSize(10);
-    const currentDate = new Date().toLocaleString();
-    doc.text(`Generated on: ${currentDate}`, margin, 27);
-    // Display user role if available
-    if (user?.role) {
-      doc.text(`Role: ${user.role}`, pageWidth - margin - 40, 20);
-    }
-    doc.setTextColor(0);
-  };
+  // Add the company logo
+  doc.addImage("/logos/Logo.jpg", "JPEG", 10, 15, 30, 30);
+
+  // Add "BrainerHub Solutions" on the left
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.setTextColor(255, 255, 255);
+  doc.text("BrainerHub Solutions", 50, 25);
+
+  // Add "Report of Events" just below the company name
+  doc.setFontSize(14);
+  doc.text("Report of Events", 50, 35);
+
+  // Right-align "Generated on" and "Role" to avoid overlap
+  doc.setFontSize(10);
+  const currentDate = new Date().toLocaleString();
+  doc.text(`Generated on: ${currentDate}`, pageWidth - margin, 25, { align: "right" });
+  if (user?.role) {
+    doc.text(`Role: ${user.role}`, pageWidth - margin, 35, { align: "right" });
+  }
+};
+
 
   // Render the footer on each page
   const renderFooter = (doc, pageWidth, pageHeight, margin, currentPage) => {
     const footerY = pageHeight - 10;
     doc.setFontSize(8);
     doc.setTextColor(100);
-    // Display download name and email from user
     const downloadName = user?.name || "";
     const downloadEmail = user?.email || "";
     doc.text(`Downloaded by: ${downloadName} (${downloadEmail})`, margin, footerY);
-    // Display page number aligned right
     doc.text(`Page ${currentPage}`, pageWidth - margin - 20, footerY);
   };
 
@@ -112,7 +120,8 @@ const AdminEventsTable = () => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 14;
-    let yOffset = 35; // start below header
+    // Start further down to leave space for the taller header
+    let yOffset = 70;
     let currentPage = 1;
 
     // Draw header and footer for the first page
@@ -125,7 +134,7 @@ const AdminEventsTable = () => {
       if (yOffset + 40 > pageHeight - margin - 10) {
         doc.addPage();
         currentPage++;
-        yOffset = 35;
+        yOffset = 70;
         renderHeader(doc, pageWidth, margin);
         renderFooter(doc, pageWidth, pageHeight, margin, currentPage);
       }
@@ -153,101 +162,92 @@ const AdminEventsTable = () => {
 
       yOffset += 40; // increment yOffset for next card
     });
-// ----------------- Graphs Page -----------------
-doc.addPage();
-currentPage++;
 
-// Render static header and footer
-renderHeader(doc, pageWidth, margin);
-renderFooter(doc, pageWidth, pageHeight, margin, currentPage);
+    // ----------------- Graphs Page -----------------
+    doc.addPage();
+    currentPage++;
+    renderHeader(doc, pageWidth, margin);
+    renderFooter(doc, pageWidth, pageHeight, margin, currentPage);
 
-// Define content boundaries so graphs don't overlap header/footer
-const contentTop = 35; // content starts just below header
-const contentBottom = pageHeight - 20; // leave room above footer
+    // Define content boundaries so graphs don't overlap header/footer
+    const contentTop = 70; // content starts below header
+    const contentBottom = pageHeight - 20; // leave room above footer
 
-// ===== Vertical Bar Graph: Events by Price Range =====
-const vLabelY = contentTop + 10;
-doc.setFontSize(12);
-doc.setFont("helvetica", "bold");
-doc.text("Events by Price Range", margin, vLabelY);
+    // ===== Vertical Bar Graph: Events by Price Range =====
+    const vLabelY = contentTop + 10;
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Events by Price Range", margin, vLabelY);
 
-// Set vertical graph parameters
-const vGraphY = vLabelY + 10; // start graph below label
-const vGraphHeight = 60; // fixed height for vertical graph
-const vGraphMargin = margin;
-const vGraphWidth = pageWidth - 2 * vGraphMargin;
+    const vGraphY = vLabelY + 10;
+    const vGraphHeight = 60;
+    const vGraphMargin = margin;
+    const vGraphWidth = pageWidth - 2 * vGraphMargin;
 
-// Calculate price range counts
-const priceRanges = { Free: 0, Paid: 0, };
-filterEvents.forEach((event) => {
-  const price = parseFloat(event.eventPrice) || 0;
-  if (price === 0) {
-    priceRanges.Free += 1;
-  } else {
-    priceRanges.Paid += 1;
-  }
-});
-const priceKeys = Object.keys(priceRanges);
-const maxPriceCount = Math.max(...Object.values(priceRanges), 1);
+    const priceRanges = { Free: 0, Paid: 0 };
+    filterEvents.forEach((event) => {
+      const price = parseFloat(event.eventPrice) || 0;
+      if (price === 0) {
+        priceRanges.Free += 1;
+      } else {
+        priceRanges.Paid += 1;
+      }
+    });
+    const priceKeys = Object.keys(priceRanges);
+    const maxPriceCount = Math.max(...Object.values(priceRanges), 1);
+    const vBarSpacing = 10;
+    const vBarWidth = (vGraphWidth - (priceKeys.length + 1) * vBarSpacing) / priceKeys.length;
 
-// Calculate bar dimensions with spacing
-const vBarSpacing = 10;
-const vBarWidth = (vGraphWidth - (priceKeys.length + 1) * vBarSpacing) / priceKeys.length;
+    priceKeys.forEach((range, index) => {
+      const count = priceRanges[range];
+      const barHeight = (count / maxPriceCount) * vGraphHeight;
+      const xPos = vGraphMargin + vBarSpacing + index * (vBarWidth + vBarSpacing);
+      const yPos = vGraphY + vGraphHeight - barHeight;
+      doc.setFillColor(100, 149, 237);
+      doc.roundedRect(xPos, yPos, vBarWidth, barHeight, 2, 2, "F");
+      doc.setFontSize(8);
+      doc.setTextColor(0);
+      doc.text(range, xPos + vBarWidth / 2, vGraphY + vGraphHeight + 4, { align: "center" });
+      doc.text(`${count}`, xPos + vBarWidth / 2, yPos - 2, { align: "center" });
+    });
 
-priceKeys.forEach((range, index) => {
-  const count = priceRanges[range];
-  const barHeight = (count / maxPriceCount) * vGraphHeight;
-  const xPos = vGraphMargin + vBarSpacing + index * (vBarWidth + vBarSpacing);
-  const yPos = vGraphY + vGraphHeight - barHeight;
-  doc.setFillColor(100, 149, 237);
-  doc.roundedRect(xPos, yPos, vBarWidth, barHeight, 2, 2, "F");
-  // Label each bar with its range and count
-  doc.setFontSize(8);
-  doc.setTextColor(0);
-  doc.text(range, xPos + vBarWidth / 2, vGraphY + vGraphHeight + 4, { align: "center" });
-  doc.text(`${count}`, xPos + vBarWidth / 2, yPos - 2, { align: "center" });
-});
+    // ===== Horizontal Bar Graph: Events by Category =====
+    const hLabelY = vGraphY + vGraphHeight + 20;
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Events by Category", margin, hLabelY);
 
-// ===== Horizontal Bar Graph: Events by Category =====
+    const categoryCounts = {};
+    filterEvents.forEach((event) => {
+      const category = event.eventCategory || "N/A";
+      categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+    });
+    const categories = Object.keys(categoryCounts);
+    const maxCategoryCount = Math.max(...Object.values(categoryCounts), 1);
 
-const hLabelY = vGraphY + vGraphHeight + 20;
-doc.setFontSize(12);
-doc.setFont("helvetica", "bold");
-doc.text(" Events by Category", margin, hLabelY);
-
-const categoryCounts = {};
-filterEvents.forEach((event) => {
-  const category = event.eventCategory || "N/A";
-  categoryCounts[category] = (categoryCounts[category] || 0) + 1;
-});
-const categories = Object.keys(categoryCounts);
-const maxCategoryCount = Math.max(...Object.values(categoryCounts), 1);
-
-const hGraphY = hLabelY + 10;
-const hGraphWidth = pageWidth - 2 * margin;
-const hBarHeight = 8;
-categories.forEach((category, index) => {
-  const count = categoryCounts[category];
-  const barLength = (count / maxCategoryCount) * hGraphWidth;
-  const yPos = hGraphY + index * (hBarHeight + 5);
-  doc.setFillColor(60, 179, 113);
-  doc.roundedRect(margin, yPos, barLength, hBarHeight, 2, 2, "F");
-  doc.setFontSize(10);
-  doc.setTextColor(0);
-  const labelText = `${category} (${count})`;
-  const labelX = margin + barLength + 2;
-  // Check if the label goes outside the right margin
-  const labelWidth = doc.getTextWidth(labelText);
-  const adjustedLabelX =
-    labelX + labelWidth > pageWidth - margin
-      ? pageWidth - margin - labelWidth
-      : labelX;
-  doc.text(labelText, adjustedLabelX, yPos + hBarHeight - 1);
-});
+    const hGraphY = hLabelY + 10;
+    const hGraphWidth = pageWidth - 2 * margin;
+    const hBarHeight = 8;
+    categories.forEach((category, index) => {
+      const count = categoryCounts[category];
+      const barLength = (count / maxCategoryCount) * hGraphWidth;
+      const yPos = hGraphY + index * (hBarHeight + 5);
+      doc.setFillColor(60, 179, 113);
+      doc.roundedRect(margin, yPos, barLength, hBarHeight, 2, 2, "F");
+      doc.setFontSize(10);
+      doc.setTextColor(0);
+      const labelText = `${category} (${count})`;
+      const labelX = margin + barLength + 2;
+      const labelWidth = doc.getTextWidth(labelText);
+      const adjustedLabelX =
+        labelX + labelWidth > pageWidth - margin
+          ? pageWidth - margin - labelWidth
+          : labelX;
+      doc.text(labelText, adjustedLabelX, yPos + hBarHeight - 1);
+    });
 
     doc.save("events_report.pdf");
   };
-  // -------------------------------------------------------------------------------------
 
   // -------------------- Generate Excel Report (unchanged) --------------------
   const generateExcel = () => {

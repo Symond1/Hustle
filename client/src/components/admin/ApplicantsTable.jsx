@@ -29,20 +29,35 @@ const extractFieldWithDefault = (field, fieldType = "") => {
   return "";
 };
 
+// Header for PDF
 const renderHeader = (doc, pageWidth, margin, user) => {
   doc.setFillColor(0, 123, 255);
-  doc.rect(0, 0, pageWidth, 30, "F");
+  doc.rect(0, 0, pageWidth, 60, "F");
+
+  doc.addImage("/logos/Logo.jpg", "JPEG", 10, 15, 30, 30);
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
   doc.setTextColor(255, 255, 255);
-  doc.text("Applicants Report", margin, 20);
+  doc.text("BrainerHub Solutions", 50, 25);
+
+  doc.setFontSize(14);
+  doc.text("Applicants Report", 50, 35);
+
   doc.setFontSize(10);
   const currentDate = new Date().toLocaleString();
-  doc.text(`Generated on: ${currentDate}`, margin, 27);
+  doc.text(`Generated on: ${currentDate}`, pageWidth - margin, 25, {
+    align: "right",
+  });
   if (user?.role) {
-    doc.text(`Role: ${user.role}`, pageWidth - margin - 40, 20);
+    doc.text(`Role: ${user.role}`, pageWidth - margin, 35, { align: "right" });
   }
-  doc.setTextColor(0);
+
+  doc.setDrawColor(200);
+  doc.setLineWidth(0.5);
+  doc.line(margin, 65, pageWidth - margin, 65);
+
+  doc.setTextColor(0, 0, 0);
 };
 
 const renderFooter = (doc, pageWidth, pageHeight, margin, currentPage, user) => {
@@ -70,28 +85,8 @@ const ApplicantsTable = ({ jobId }) => {
   });
 
   useEffect(() => {
-    const fetchApplicants = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token)
-          return toast.error("Authentication error. Please log in again.");
-        const res = await axios.get(
-          `${APPLICATION_API_END_POINT}/${jobId}/applicants`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (res.data.success) {
-          setApplicantsData(res.data.applicants);
-        } else {
-          toast.error("Failed to fetch applicants.");
-        }
-      } catch (error) {
-        toast.error(
-          error.response?.data?.message || "Error fetching applicants."
-        );
-      }
-    };
-    if (jobId) fetchApplicants();
-  }, [jobId]);
+    setApplicantsData(applicants);
+  }, [applicants]);
 
   const statusHandler = async (status, id) => {
     try {
@@ -137,17 +132,23 @@ const ApplicantsTable = ({ jobId }) => {
     );
   });
 
-  // Generate PDF with header, footer, card layout, and two graphs at the end.
   const generatePDF = () => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 14;
     let currentPage = 1;
+
     renderHeader(doc, pageWidth, margin, user);
-    let startY = 35; // After header
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+
+    let startY = 70;
     const cardGap = 5;
 
+    // --- Render Applicant Cards in PDF using Card Format ---
     filteredApplicants.forEach((applicant) => {
       const profile = applicant?.applicant?.profile || {};
       const city = extractFieldWithDefault(
@@ -158,18 +159,12 @@ const ApplicantsTable = ({ jobId }) => {
         profile.state || applicant?.applicant?.state,
         "state"
       );
-      const address = extractFieldWithDefault(
-        profile.address || applicant?.applicant?.address,
-        "address"
-      );
-      // Build lines for the card; note: experience is removed.
       const lines = [
         `Name: ${applicant?.applicant?.fullname || ""}`,
         `Email: ${applicant?.applicant?.email || ""}`,
         `Contact: ${applicant?.applicant?.phoneNumber || ""}`,
         `City: ${city}`,
         `State: ${state}`,
-        `Address: ${address}`,
         `Gender: ${profile.gender || ""}`,
         `Education: ${
           Array.isArray(profile.education) && profile.education.length > 0
@@ -177,47 +172,67 @@ const ApplicantsTable = ({ jobId }) => {
                 .map(
                   (edu) =>
                     `${edu.degree || ""} in ${edu.fieldOfStudy || ""} (${
-                      edu.startDate ? new Date(edu.startDate).toLocaleDateString() : ""
+                      edu.startDate
+                        ? new Date(edu.startDate).toLocaleDateString()
+                        : ""
                     } - ${
-                      edu.endDate ? new Date(edu.endDate).toLocaleDateString() : ""
+                      edu.endDate
+                        ? new Date(edu.endDate).toLocaleDateString()
+                        : ""
                     })`
                 )
                 .join(" | ")
             : ""
         }`,
         `Status: ${applicant?.status || "Pending"}`,
-        `Applied on: ${applicant?.createdAt ? applicant.createdAt.split("T")[0] : ""}`,
+        `Applied on: ${
+          applicant?.createdAt ? applicant.createdAt.split("T")[0] : ""
+        }`,
       ];
 
-      // Calculate dynamic card height
       const cardHeight = lines.length * 5 + 7;
+
+      // Check if new page is needed
       if (startY + cardHeight > pageHeight - margin - 10) {
         renderFooter(doc, pageWidth, pageHeight, margin, currentPage, user);
         doc.addPage();
         currentPage++;
         renderHeader(doc, pageWidth, margin, user);
-        startY = 35;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        startY = 70;
       }
-      doc.setDrawColor(0);
-      doc.rect(margin, startY, pageWidth - 2 * margin, cardHeight, "S");
+
+      // Draw a card background with rounded corners (no outer border)
+      doc.setFillColor(245, 245, 245);
+      doc.roundedRect(margin, startY, pageWidth - 2 * margin, cardHeight, 3, 3, "F");
+
+      // Render text lines inside the card
       let textY = startY + 7;
       lines.forEach((line) => {
         doc.text(line, margin + 4, textY);
         textY += 5;
       });
+
       startY += cardHeight + cardGap;
     });
-    // Draw footer on the last page of cards.
+
     renderFooter(doc, pageWidth, pageHeight, margin, currentPage, user);
 
-    // Now add a new page for the graphs.
+    // --- Next Page: Charts Section ---
     doc.addPage();
     currentPage++;
     renderHeader(doc, pageWidth, margin, user);
-    let graphStartY = 35;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+
+    let graphStartY = 70;
     doc.setFontSize(14);
-    doc.text("Status Distribution", margin, graphStartY);
-    graphStartY += 5;
+    doc.text("Job Status Distribution", margin, graphStartY);
+    graphStartY += 10; // Move down after title
 
     // Calculate status counts
     const statuses = ["accepted", "rejected", "pending"];
@@ -233,6 +248,8 @@ const ApplicantsTable = ({ jobId }) => {
     const numBars = statuses.length;
     const availableWidth = pageWidth - 2 * margin;
     const barWidth = (availableWidth - (numBars + 1) * barSpacing) / numBars;
+
+    // Draw each status bar
     statuses.forEach((status, index) => {
       const count = statusCounts[status];
       const barHeight = (count / maxStatus) * graphHeight;
@@ -247,11 +264,18 @@ const ApplicantsTable = ({ jobId }) => {
       doc.text(`${count}`, x + barWidth / 2, y - 2, { align: "center" });
     });
 
+    // Add border around the Job Status Distribution chart (below title)
+    const jobChartY = graphStartY - 5; // Start border below the title
+    const jobChartHeight = graphHeight + 15;
+    doc.setDrawColor(0);
+    doc.rect(margin, jobChartY, availableWidth, jobChartHeight, "S");
+
     // Second graph: Education Distribution
-    graphStartY = graphStartY + graphHeight + 20;
+    graphStartY += graphHeight + 30; // Adjusted spacing
     doc.setFontSize(14);
     doc.text("Education Distribution", margin, graphStartY);
-    graphStartY += 5;
+    graphStartY += 10; // Move down after title
+
     const eduCategories = ["Bachelor", "Master", "PhD"];
     let eduCounts = { Bachelor: 0, Master: 0, PhD: 0 };
     filteredApplicants.forEach((applicant) => {
@@ -274,6 +298,7 @@ const ApplicantsTable = ({ jobId }) => {
     const eduBarWidth =
       (availableWidth - (eduCategories.length + 1) * barSpacing) /
       eduCategories.length;
+
     eduCategories.forEach((cat, index) => {
       const count = eduCounts[cat];
       const barHeight = (count / maxEdu) * eduGraphHeight;
@@ -287,6 +312,13 @@ const ApplicantsTable = ({ jobId }) => {
       });
       doc.text(`${count}`, x + eduBarWidth / 2, y - 2, { align: "center" });
     });
+
+    // Add border around the Education Distribution chart (below title)
+    const eduChartY = graphStartY - 5; // Start border below the title
+    const eduChartHeight = eduGraphHeight + 15;
+    doc.setDrawColor(0);
+    doc.rect(margin, eduChartY, availableWidth, eduChartHeight, "S");
+
     renderFooter(doc, pageWidth, pageHeight, margin, currentPage, user);
     doc.save("Applicants_Report.pdf");
   };
@@ -345,7 +377,6 @@ const ApplicantsTable = ({ jobId }) => {
 
   return (
     <div>
-      {/* Back Button */}
       <Button onClick={() => window.history.back()} className="mb-4">
         Back
       </Button>
@@ -424,13 +455,11 @@ const ApplicantsTable = ({ jobId }) => {
         </Button>
       </div>
 
-      {/* Main View: Card Layout */}
-      <div className="border rounded shadow mb-4">
-        {/* Header */}
+      {/* Main View: Card Layout for Applicants */}
+      <div className="rounded shadow mb-4">
         <div className="bg-gray-100 p-4 border-b">
           <h2 className="text-xl font-semibold">Applicants List</h2>
         </div>
-        {/* Cards */}
         <div className="flex flex-col divide-y">
           {filteredApplicants.map((applicant) => {
             const profile = applicant?.applicant?.profile || {};
@@ -483,7 +512,17 @@ const ApplicantsTable = ({ jobId }) => {
                         ? profile.education
                             .map(
                               (edu) =>
-                                `${edu.degree || ""} in ${edu.fieldOfStudy || ""} (${edu.startDate ? new Date(edu.startDate).toLocaleDateString() : ""} - ${edu.endDate ? new Date(edu.endDate).toLocaleDateString() : ""})`
+                                `${edu.degree || ""} in ${
+                                  edu.fieldOfStudy || ""
+                                } (${
+                                  edu.startDate
+                                    ? new Date(edu.startDate).toLocaleDateString()
+                                    : ""
+                                } - ${
+                                  edu.endDate
+                                    ? new Date(edu.endDate).toLocaleDateString()
+                                    : ""
+                                })`
                             )
                             .join(" | ")
                         : ""}
@@ -508,10 +547,11 @@ const ApplicantsTable = ({ jobId }) => {
                       : ""}
                   </div>
                 </div>
-                {/* Status Selector */}
                 <div className="flex flex-col items-center">
                   <Select
-                    onValueChange={(value) => statusHandler(value, applicant._id)}
+                    onValueChange={(value) =>
+                      statusHandler(value, applicant._id)
+                    }
                     value={applicant.status || "Pending"}
                   >
                     <SelectTrigger className="min-w-[120px] text-center">
