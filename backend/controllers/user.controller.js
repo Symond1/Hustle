@@ -28,8 +28,8 @@ export const seedAdmin = async () => {
             profile: {
                 skills: [],
                 resume: "",
-                education: "N/A",
-                experience: "N/A",
+                education: {},
+                experience: {},
                 gender: "Male",
                 company: null
             },

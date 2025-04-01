@@ -206,45 +206,46 @@ export const registerForEvent = async (req, res) => {
 // Get All Events (for viewers and Recruiter)
 export const getAllEvents = async (req, res) => {
     try {
-        const events = await Event.find().populate("createdBy");
-
-        if (!events.length) {
-            return res.status(404).json({
-                message: "No events found.",
-                success: false,
-            });
-        }
-
-        // Viewers can see event details excluding attendees
-        const eventsToReturn = events.map((event) => ({
-            eventId: event._id,
-            eventTitle: event.eventTitle,
-            Organizer: event.Organizer,
-            eventType: event.eventType,
-            eventDescription: event.eventDescription,
-            eventDate: event.eventDate,
-            eventStartTime: event.eventStartTime,
-            registrationDeadline: event.registrationDeadline,
-            location: event.location,
-            eventCategory: event.eventCategory,
-            eventPrice: event.eventPrice,
-            createdBy: event.createdBy,
-            thirdPartyLink: event.thirdPartyLink // Include third-party link
-        }));
-
+      const events = await Event.find().populate("createdBy");
+  
+      // Instead of a 404, return an empty array with a success status
+      if (!events.length) {
         return res.status(200).json({
-            events: eventsToReturn,
-            success: true,
+          events: [],
+          message: "No events found.",
+          success: true,
         });
+      }
+  
+      const eventsToReturn = events.map((event) => ({
+        eventId: event._id,
+        eventTitle: event.eventTitle,
+        Organizer: event.Organizer,
+        eventType: event.eventType,
+        eventDescription: event.eventDescription,
+        eventDate: event.eventDate,
+        eventStartTime: event.eventStartTime,
+        registrationDeadline: event.registrationDeadline,
+        location: event.location,
+        eventCategory: event.eventCategory,
+        eventPrice: event.eventPrice,
+        createdBy: event.createdBy,
+        thirdPartyLink: event.thirdPartyLink
+      }));
+  
+      return res.status(200).json({
+        events: eventsToReturn,
+        success: true,
+      });
     } catch (error) {
-        console.log(error);
-        return res.status(500).json({
-            message: "Error retrieving events.",
-            success: false,
-        });
+      console.log(error);
+      return res.status(500).json({
+        message: "Error retrieving events.",
+        success: false,
+      });
     }
-};
-
+  };
+  
 
 // Get Event Attendees (for Recruiter and Admin)
 
