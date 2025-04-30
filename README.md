@@ -117,4 +117,8 @@ npm run dev
 5. **Track Your Progress:** Monitor your job applications and event participations.
 
 ---
-**Hustle** - Where Opportunities Meet Talent. 🚀
+**Hustle** - Where Opportunities Meet Talent. 🚀 
+
+[Presentation1.pptx](https://github.com/user-attachments/files/19984831/Presentation1.pptx)
+
+[Presentation2.pptx](https://github.com/user-attachments/files/19984832/Presentation2.pptx)
